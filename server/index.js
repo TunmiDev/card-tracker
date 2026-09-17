@@ -47,12 +47,10 @@ app.get('/api/dashboard/stats', async (req, res) => {
   try {
     const statsQuery = `
       SELECT 
-        (SELECT COUNT(*) FROM dispatches) as dispatched,
-        (SELECT COUNT(*) FROM licences WHERE status = 'Collected') as collected,
-        (SELECT COUNT(*) FROM licences WHERE status = 'Available') as outstanding,
-        (SELECT COUNT(*) FROM licences WHERE status = 'Missing') as missing,
-        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Personal' AND date(collection_date) = date('now')) as today_personal,
-        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Proxy' AND date(collection_date) = date('now')) as today_proxy
+        (SELECT COUNT(*) FROM licences WHERE status = 'Available') as available,
+        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Personal') as collected_personal,
+        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Proxy') as collected_proxy,
+        (SELECT COUNT(*) FROM licences WHERE status = 'Collected') as collected_total
     `;
     const result = await db.execute(statsQuery);
     res.json(result.rows[0]);
@@ -64,28 +62,44 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
 // GET /api/licences/search?q=
 app.get('/api/licences/search', async (req, res) => {
-  const { q } = req.query;
-  if (!q) {
-    return res.status(400).json({ error: 'Query parameter q is required' });
-  }
+  const q = req.query.q || '';
 
   try {
-    const searchQuery = `
-      SELECT 
-        l.*, 
-        d.dispatch_code, d.dispatch_date,
-        c.collection_type, c.collection_date, c.collector_name, c.collector_phone,
-        m.missing_id, m.date_reported, m.reason, m.status as missing_status
-      FROM licences l
-      LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
-      LEFT JOIN collections c ON l.licence_id = c.licence_id
-      LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
-      WHERE l.licence_number LIKE ? OR l.pickup_code LIKE ?
-    `;
-    const result = await db.execute({
-      sql: searchQuery,
-      args: [`%${q}%`, `%${q}%`]
-    });
+    let result;
+    if (!q.trim()) {
+      const recentQuery = `
+        SELECT 
+          l.*, 
+          d.dispatch_code, d.dispatch_date,
+          c.collection_type, c.collection_date, c.collector_name, c.collector_phone,
+          m.missing_id, m.date_reported, m.reason, m.status as missing_status
+        FROM licences l
+        LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
+        LEFT JOIN collections c ON l.licence_id = c.licence_id
+        LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
+        WHERE l.status = 'Available'
+        ORDER BY l.licence_id DESC
+      `;
+      result = await db.execute(recentQuery);
+    } else {
+      const searchQuery = `
+        SELECT 
+          l.*, 
+          d.dispatch_code, d.dispatch_date,
+          c.collection_type, c.collection_date, c.collector_name, c.collector_phone,
+          m.missing_id, m.date_reported, m.reason, m.status as missing_status
+        FROM licences l
+        LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
+        LEFT JOIN collections c ON l.licence_id = c.licence_id
+        LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
+        WHERE l.licence_number LIKE ? OR l.pickup_code LIKE ? OR l.applicant_name LIKE ?
+      `;
+      const searchParam = `%${q.trim()}%`;
+      result = await db.execute({
+        sql: searchQuery,
+        args: [searchParam, searchParam, searchParam]
+      });
+    }
     res.json(result.rows);
   } catch (err) {
     console.error(err);

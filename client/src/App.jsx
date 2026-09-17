@@ -14,6 +14,10 @@ export default function App() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedLicence, setSelectedLicence] = useState(null);
   
+  const [batches, setBatches] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  
   const [showModal, setShowModal] = useState(false);
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [showAuditDrawer, setShowAuditDrawer] = useState(false);
@@ -38,6 +42,7 @@ export default function App() {
 
   useEffect(() => {
     fetchStats();
+    fetchBatches();
   }, []);
 
   useEffect(() => {
@@ -45,6 +50,25 @@ export default function App() {
       fetchReports();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'terminal') {
+      const delayDebounceFn = setTimeout(() => {
+        handleSearch();
+      }, 300);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [searchQuery, activeTab]);
+
+  const fetchBatches = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/dispatches');
+      const data = await res.json();
+      setBatches(data);
+    } catch (err) {
+      console.error('Failed to fetch batches', err);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -77,7 +101,7 @@ export default function App() {
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
-    if (!searchQuery.trim()) return;
+    setCurrentPage(1);
     
     setIsSearching(true);
     try {
@@ -86,12 +110,6 @@ export default function App() {
       
       if (Array.isArray(data)) {
         setSearchResults(data);
-        if (data.length === 1) {
-          setSelectedLicence(data[0]);
-        } else if (selectedLicence) {
-          const updated = data.find(l => l.licence_id === selectedLicence.licence_id);
-          if (updated) setSelectedLicence(updated);
-        }
       } else {
         setSearchResults([]);
       }
@@ -149,6 +167,18 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedBatch]);
+
+  const filteredResults = searchResults.filter(licence => 
+    selectedBatch === 'all' || licence.dispatch_id === Number(selectedBatch)
+  );
+  
+  const itemsPerPage = 25;
+  const totalPages = Math.ceil(filteredResults.length / itemsPerPage) || 1;
+  const paginatedResults = filteredResults.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
       {/* Header */}
@@ -185,20 +215,22 @@ export default function App() {
             </div>
           </div>
 
-          <form onSubmit={handleSearch} className="w-64 relative group">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" />
-            <input 
-              ref={searchInputRef}
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..." 
-              className="w-full pl-9 pr-8 py-1.5 bg-slate-100 border border-transparent rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition-all"
-            />
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-              <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-xs font-medium text-slate-400 bg-white border border-slate-200 rounded">⌘K</kbd>
-            </div>
-          </form>
+          {activeTab !== 'terminal' && (
+            <form onSubmit={handleSearch} className="w-64 relative group">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" />
+              <input 
+                ref={searchInputRef}
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..." 
+                className="w-full pl-9 pr-8 py-1.5 bg-slate-100 border border-transparent rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
+              />
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-xs font-medium text-slate-400 bg-white border border-slate-200 rounded">⌘K</kbd>
+              </div>
+            </form>
+          )}
         </div>
       </header>
 
@@ -216,153 +248,135 @@ export default function App() {
           <>
             {/* Metrics Row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Dispatched" value={stats?.dispatched || 0} icon={<Truck className="w-5 h-5 text-indigo-500" />} />
-              <StatCard title="Available (Outstanding)" value={stats?.outstanding || 0} icon={<CreditCard className="w-5 h-5 text-emerald-500" />} />
-              <StatCard title="Collected Total" value={stats?.collected || 0} icon={<CheckCircle className="w-5 h-5 text-slate-500" />} 
-                subtitle={`Today: ${stats?.today_personal || 0} Personal / ${stats?.today_proxy || 0} Proxy`} />
-              <StatCard title="Missing" value={stats?.missing || 0} icon={<AlertTriangle className="w-5 h-5 text-rose-500" />} />
+              <StatCard title="Available in Stock" value={stats?.available || 0} icon={<CreditCard className="w-5 h-5 text-emerald-500" />} />
+              <StatCard title="Personal Pickups" value={stats?.collected_personal || 0} icon={<User className="w-5 h-5 text-indigo-500" />} />
+              <StatCard title="Proxy Pickups" value={stats?.collected_proxy || 0} icon={<Truck className="w-5 h-5 text-indigo-500" />} />
+              <StatCard title="Total Collected" value={stats?.collected_total || 0} icon={<CheckCircle className="w-5 h-5 text-slate-500" />} />
             </div>
 
-            {/* Workspace Area */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Results List */}
-              <div className="lg:col-span-1 border border-slate-200 bg-white rounded-xl shadow-sm overflow-hidden flex flex-col h-150">
-                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-                  <h3 className="text-sm font-semibold text-slate-700">Search Results {searchResults.length > 0 && `(${searchResults.length})`}</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2">
-                  {isSearching ? (
-                    <div className="flex justify-center p-8 text-slate-400">Searching...</div>
-                  ) : !Array.isArray(searchResults) || searchResults.length === 0 ? (
-                    <div className="text-center p-8 text-sm text-slate-500">
-                      <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                      No licences found. Use the search bar above.
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {searchResults.map(licence => (
-                        <div 
-                          key={licence.licence_id} 
-                          onClick={() => setSelectedLicence(licence)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                            selectedLicence?.licence_id === licence.licence_id 
-                              ? 'bg-indigo-50 border-indigo-200' 
-                              : 'bg-white border-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="font-semibold text-slate-900 text-sm">{licence.licence_number}</span>
-                            <StatusBadge status={licence.status} />
-                          </div>
-                          <p className="text-xs text-slate-600 truncate">{licence.applicant_name}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {/* Unified Search and Table */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[600px]">
+              <div className="p-6 border-b border-slate-200 bg-slate-50">
+                <div className="relative max-w-3xl mx-auto flex gap-3">
+                  <div className="relative flex-1">
+                    <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                    <input
+                      ref={activeTab === 'terminal' ? searchInputRef : null}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by DL Number, Applicant Name, or Pickup Code..."
+                      className="w-full pl-12 pr-4 py-3 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base shadow-sm transition-all"
+                    />
+                  </div>
+                  <select 
+                    value={selectedBatch} 
+                    onChange={e => setSelectedBatch(e.target.value)}
+                    className="w-48 px-4 py-3 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm text-slate-700"
+                  >
+                    <option value="all">All Batches</option>
+                    {batches.map(b => (
+                      <option key={b.dispatch_id} value={b.dispatch_id}>{b.dispatch_code}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-
-              {/* Profile Card & Action Panel */}
-              <div className="lg:col-span-2">
-                {selectedLicence ? (
-                  <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 h-full flex flex-col">
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-1">{selectedLicence.applicant_name}</h2>
-                        <div className="flex items-center text-sm text-slate-500 space-x-4">
-                          <span className="flex items-center"><CreditCard className="w-4 h-4 mr-1" /> {selectedLicence.licence_number}</span>
-                          <span className="flex items-center"><User className="w-4 h-4 mr-1" /> {selectedLicence.phone_number}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end space-y-2">
-                        <StatusBadge status={selectedLicence.status} size="lg" />
-                        <button 
-                          onClick={() => handleViewAudit(selectedLicence)}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center"
-                        >
-                          <History className="w-3 h-3 mr-1" /> Audit Trail
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                      <InfoItem icon={<MapPin className="w-4 h-4 text-slate-400" />} label="Address" value={selectedLicence.address} />
-                      <InfoItem icon={<Key className="w-4 h-4 text-slate-400" />} label="Pickup Code" value={selectedLicence.pickup_code} />
-                      <InfoItem icon={<Truck className="w-4 h-4 text-slate-400" />} label="Dispatch Code" value={selectedLicence.dispatch_code} />
-                      <InfoItem icon={<Calendar className="w-4 h-4 text-slate-400" />} label="Arrival Date" value={new Date(selectedLicence.date_received).toLocaleDateString()} />
-                    </div>
-
-                    <div className="flex-1">
-                      {selectedLicence.status === 'Collected' && (
-                        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 mt-2">
-                          <h4 className="text-xs font-semibold uppercase text-slate-500 mb-2 flex items-center">
-                            <CheckCircle className="w-4 h-4 mr-1 text-slate-400" /> Collection Record
-                          </h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <p><span className="text-slate-500">Type:</span> {selectedLicence.collection_type}</p>
-                            <p><span className="text-slate-500">Date:</span> {new Date(selectedLicence.collection_date).toLocaleString()}</p>
-                            <p><span className="text-slate-500">Collector:</span> {selectedLicence.collector_name}</p>
-                            <p><span className="text-slate-500">Phone:</span> {selectedLicence.collector_phone}</p>
-                            {selectedLicence.collection_type === 'Proxy' && (
-                              <>
-                                <p><span className="text-slate-500">ID:</span> {selectedLicence.collector_id_num}</p>
-                                <p><span className="text-slate-500">Relation:</span> {selectedLicence.relationship}</p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedLicence.status === 'Missing' && (
-                        <div className="bg-rose-50 rounded-lg p-4 border border-rose-200 mt-2">
-                          <h4 className="text-xs font-semibold uppercase text-rose-600 mb-2 flex items-center">
-                            <AlertTriangle className="w-4 h-4 mr-1 text-rose-500" /> Missing Record
-                          </h4>
-                          <p className="text-sm text-rose-800 mb-1"><span className="font-medium">Reason:</span> {selectedLicence.reason}</p>
-                          <p className="text-sm text-rose-800"><span className="font-medium">Reported:</span> {new Date(selectedLicence.date_reported).toLocaleString()}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-auto border-t border-slate-100 pt-6 flex space-x-3">
-                      {selectedLicence.status === 'Available' && (
-                        <>
-                          <button 
-                            onClick={() => setShowModal(true)}
-                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg shadow-sm transition-colors flex justify-center items-center"
-                          >
-                            <CheckCircle className="w-5 h-5 mr-2" />
-                            Record Collection
-                          </button>
-                          <button 
-                            onClick={() => setShowMissingModal(true)}
-                            className="px-4 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium rounded-lg shadow-sm transition-colors flex justify-center items-center"
-                          >
-                            <AlertTriangle className="w-5 h-5 text-slate-400" />
-                          </button>
-                        </>
-                      )}
-                      
-                      {selectedLicence.status === 'Missing' && (
-                        <button 
-                          onClick={() => handleResolveMissing(selectedLicence)}
-                          className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-3 px-4 rounded-lg shadow-sm transition-colors flex justify-center items-center"
-                        >
-                          <ListChecks className="w-5 h-5 mr-2" />
-                          Resolve Issue (Return to Available)
-                        </button>
-                      )}
-                    </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {isSearching ? (
+                  <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>
+                ) : !Array.isArray(filteredResults) || filteredResults.length === 0 ? (
+                  <div className="text-center p-12 text-sm text-slate-500 flex flex-col items-center">
+                    <FileText className="w-12 h-12 mb-4 text-slate-300" />
+                    No licences found. Try a different search term.
                   </div>
                 ) : (
-                  <div className="h-full border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center bg-slate-50">
-                    <div className="text-center">
-                      <CreditCard className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500 font-medium">Select a licence record to view details</p>
-                    </div>
-                  </div>
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-white border-b border-slate-100 text-slate-500 sticky top-0 shadow-sm z-10">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold w-16">S/N</th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">DL Number</th>
+                        <th className="px-6 py-4 font-semibold">Applicant Name</th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Phone Number</th>
+                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Pickup Code</th>
+                        <th className="px-6 py-4 font-semibold">Status</th>
+                        <th className="px-6 py-4 font-semibold">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paginatedResults.map((licence, index) => (
+                        <tr key={licence.licence_id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 text-slate-500 font-medium">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
+                          <td className="px-6 py-4 font-medium text-slate-900">{licence.licence_number}</td>
+                          <td className="px-6 py-4 text-slate-700">{licence.applicant_name}</td>
+                          <td className="px-6 py-4 text-slate-600">{licence.phone_number}</td>
+                          <td className="px-6 py-4">
+                            <span className="font-mono bg-slate-100 px-2 py-1 rounded text-slate-700">{licence.pickup_code}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <StatusBadge status={licence.status} />
+                          </td>
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            {licence.status === 'Available' ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedLicence(licence);
+                                  setShowModal(true);
+                                }}
+                                className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm"
+                              >
+                                Hand Over / Collect
+                              </button>
+                            ) : licence.status === 'Missing' ? (
+                              <button
+                                onClick={() => handleResolveMissing(licence)}
+                                className="inline-flex items-center px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg transition-colors shadow-sm"
+                              >
+                                Resolve
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleViewAudit(licence)}
+                                className="inline-flex items-center px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium rounded-lg transition-colors shadow-sm"
+                              >
+                                <History className="w-4 h-4 mr-2" /> Audit
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
+              
+              {/* Pagination */}
+              {!isSearching && filteredResults.length > 0 && (
+                <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between">
+                  <span className="text-sm text-slate-500">
+                    Showing <span className="font-medium text-slate-900">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-medium text-slate-900">{Math.min(currentPage * itemsPerPage, filteredResults.length)}</span> of <span className="font-medium text-slate-900">{filteredResults.length}</span> results
+                  </span>
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm text-slate-600 font-medium">Page {currentPage} of {totalPages}</span>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         ) : activeTab === 'reports' ? (
@@ -406,6 +420,7 @@ export default function App() {
     </div>
   );
 }
+
 
 // Subcomponents
 
