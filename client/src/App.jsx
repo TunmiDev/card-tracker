@@ -3,7 +3,7 @@ import {
   CreditCard, Truck, AlertTriangle, CheckCircle, Search, 
   User, Calendar, MapPin, Key, X, Check, FileText,
   History, Printer, Download, Clock, Activity, ListChecks, FileSpreadsheet,
-  PackagePlus, UploadCloud, FileCheck
+  PackagePlus, UploadCloud, FileCheck, ChevronDown
 } from 'lucide-react';
 
 export default function App() {
@@ -12,6 +12,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [selectedLicence, setSelectedLicence] = useState(null);
   
   const [batches, setBatches] = useState([]);
@@ -50,15 +51,6 @@ export default function App() {
       fetchReports();
     }
   }, [activeTab]);
-
-  useEffect(() => {
-    if (activeTab === 'terminal') {
-      const delayDebounceFn = setTimeout(() => {
-        handleSearch();
-      }, 300);
-      return () => clearTimeout(delayDebounceFn);
-    }
-  }, [searchQuery, activeTab]);
 
   const fetchBatches = async () => {
     try {
@@ -103,7 +95,14 @@ export default function App() {
     if (e) e.preventDefault();
     setCurrentPage(1);
     
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setHasSearched(false);
+      return;
+    }
+
     setIsSearching(true);
+    setHasSearched(true);
     try {
       const res = await fetch(`http://localhost:5000/api/licences/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
@@ -222,7 +221,14 @@ export default function App() {
                 ref={searchInputRef}
                 type="text" 
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchQuery(val);
+                  if (!val.trim()) {
+                    setSearchResults([]);
+                    setHasSearched(false);
+                  }
+                }}
                 placeholder="Search..." 
                 className="w-full pl-9 pr-8 py-1.5 bg-slate-100 border border-transparent rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
               />
@@ -246,101 +252,163 @@ export default function App() {
 
         {activeTab === 'terminal' ? (
           <>
-            {/* Metrics Row */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard title="Available in Stock" value={stats?.available || 0} icon={<CreditCard className="w-5 h-5 text-emerald-500" />} />
-              <StatCard title="Personal Pickups" value={stats?.collected_personal || 0} icon={<User className="w-5 h-5 text-indigo-500" />} />
-              <StatCard title="Proxy Pickups" value={stats?.collected_proxy || 0} icon={<Truck className="w-5 h-5 text-indigo-500" />} />
-              <StatCard title="Total Collected" value={stats?.collected_total || 0} icon={<CheckCircle className="w-5 h-5 text-slate-500" />} />
-            </div>
-
             {/* Unified Search and Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[600px]">
-              <div className="p-6 border-b border-slate-200 bg-slate-50">
-                <div className="relative max-w-3xl mx-auto flex gap-3">
-                  <div className="relative flex-1">
-                    <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" />
+              {/* Header Title */}
+              <div className="px-6 pt-6 pb-2 border-b border-slate-100 bg-slate-50/50">
+                <div className="flex items-center space-x-3">
+                  <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+                    Dispatch Index
+                  </h2>
+                  <span className="bg-slate-200 text-slate-700 text-xs px-2.5 py-0.5 rounded-full font-medium">2026 Till Date</span>
+                </div>
+              </div>
+
+              {/* Search Filter Control */}
+              <div className="p-6 border-b border-slate-200 bg-white flex flex-col items-center">
+                <div className="w-full max-w-2xl flex flex-col items-center">
+                  {/* Input Field */}
+                  <div className="relative w-full flex gap-3 items-center group">
+                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                      <Search className="w-5 h-5" />
+                    </div>
                     <input
                       ref={activeTab === 'terminal' ? searchInputRef : null}
                       type="text"
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by DL Number, Applicant Name, or Pickup Code..."
-                      className="w-full pl-12 pr-4 py-3 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base shadow-sm transition-all"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchQuery(val);
+                        if (!val.trim()) {
+                          setSearchResults([]);
+                          setHasSearched(false);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleSearch();
+                        }
+                      }}
+                      placeholder="Type DL Number or Applicant Name and hit Enter..."
+                      className="w-full pl-12 pr-20 py-3 bg-white border-2 border-slate-300 rounded focus:outline-none focus:border-blue-500 text-lg uppercase font-mono shadow-sm transition-colors text-slate-900 placeholder:text-base placeholder:text-slate-400 placeholder:normal-case placeholder:font-sans"
                     />
+                    {!searchQuery ? (
+                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <kbd className="hidden lg:inline-flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded shadow-sm">
+                          <span>↵</span>
+                          <span>Enter</span>
+                        </kbd>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSearchResults([]);
+                          setHasSearched(false);
+                        }}
+                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
-                  <select 
-                    value={selectedBatch} 
-                    onChange={e => setSelectedBatch(e.target.value)}
-                    className="w-48 px-4 py-3 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm text-slate-700"
-                  >
-                    <option value="all">All Batches</option>
-                    {batches.map(b => (
-                      <option key={b.dispatch_id} value={b.dispatch_id}>{b.dispatch_code}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto bg-slate-50">
                 {isSearching ? (
-                  <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>
-                ) : !Array.isArray(filteredResults) || filteredResults.length === 0 ? (
-                  <div className="text-center p-12 text-sm text-slate-500 flex flex-col items-center">
-                    <FileText className="w-12 h-12 mb-4 text-slate-300" />
-                    No licences found. Try a different search term.
+                  <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-blue-500 animate-spin" /></div>
+                ) : !hasSearched ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-12 mt-16">
+                    <div className="bg-slate-100 p-5 rounded-full mb-4 ring-8 ring-slate-50">
+                      <Search className="w-12 h-12 text-slate-300" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800 mb-1">Search for a Driver's License</h3>
+                    <p className="text-slate-500 max-w-sm">Enter a DL Number or Applicant Name in the search bar above to begin.</p>
                   </div>
-                ) : (
+                ) : !Array.isArray(filteredResults) || filteredResults.length === 0 ? (
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-white border-b border-slate-100 text-slate-500 sticky top-0 shadow-sm z-10">
+                    <thead className="bg-indigo-700 border-b border-indigo-800 text-white font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
                       <tr>
-                        <th className="px-6 py-4 font-semibold w-16">S/N</th>
-                        <th className="px-6 py-4 font-semibold whitespace-nowrap">DL Number</th>
-                        <th className="px-6 py-4 font-semibold">Applicant Name</th>
-                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Phone Number</th>
-                        <th className="px-6 py-4 font-semibold whitespace-nowrap">Pickup Code</th>
-                        <th className="px-6 py-4 font-semibold">Status</th>
-                        <th className="px-6 py-4 font-semibold">Action</th>
+                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">dl_number</th>
+                        <th className="px-6 py-4 tracking-wider">applicant name</th>
+                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">pickup Code</th>
+                        <th className="px-6 py-4 tracking-wider">status</th>
+                        <th className="px-6 py-4 tracking-wider">action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {paginatedResults.map((licence, index) => (
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      <tr><td colSpan="5" className="text-center p-12 text-sm text-slate-500">No record found for this DL Number or Name.</td></tr>
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-indigo-600 border-b border-indigo-800 text-white font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
+                      <tr>
+                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">dl number</th>
+                        <th className="px-6 py-4 tracking-wider">applicant name</th>
+                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">pickup Code</th>
+                        <th className="px-6 py-4 tracking-wider">status</th>
+                        <th className="px-6 py-4 tracking-wider">action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {paginatedResults.map((licence) => (
                         <tr key={licence.licence_id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 text-slate-500 font-medium">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
-                          <td className="px-6 py-4 font-medium text-slate-900">{licence.licence_number}</td>
-                          <td className="px-6 py-4 text-slate-700">{licence.applicant_name}</td>
-                          <td className="px-6 py-4 text-slate-600">{licence.phone_number}</td>
+                          <td className="px-6 py-4 font-mono font-medium text-slate-900">{licence.licence_number}</td>
+                          <td className="px-6 py-4 font-medium text-slate-900">{licence.applicant_name}</td>
                           <td className="px-6 py-4">
-                            <span className="font-mono bg-slate-100 px-2 py-1 rounded text-slate-700">{licence.pickup_code}</span>
+                            {licence.pickup_code ? (
+                              <span className="font-mono font-medium text-slate-700">{licence.pickup_code}</span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200 shadow-sm">N/A</span>
+                            )}
                           </td>
                           <td className="px-6 py-4">
-                            <StatusBadge status={licence.status} />
+                            {licence.status === 'Available' ? (
+                              <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-semibold">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {licence.status}
+                              </span>
+                            ) : licence.status === 'Missing' ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold">
+                                {licence.status}
+                              </span>
+                            ) : (
+                              <div className="flex flex-col space-y-1">
+                                <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200 text-xs font-semibold">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Collected
+                                </span>
+                                {licence.collector_name && (
+                                  <span className="text-xs text-slate-500">
+                                    {licence.collection_type ? `${licence.collection_type} • ` : ''}{licence.collector_name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </td>
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <td className="px-6 py-4">
                             {licence.status === 'Available' ? (
                               <button
                                 onClick={() => {
                                   setSelectedLicence(licence);
                                   setShowModal(true);
                                 }}
-                                className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm"
+                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
                               >
                                 Hand Over / Collect
                               </button>
                             ) : licence.status === 'Missing' ? (
                               <button
                                 onClick={() => handleResolveMissing(licence)}
-                                className="inline-flex items-center px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg transition-colors shadow-sm"
+                                className="inline-flex items-center px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded transition-colors shadow-sm text-xs"
                               >
                                 Resolve
                               </button>
                             ) : (
-                              <button
-                                onClick={() => handleViewAudit(licence)}
-                                className="inline-flex items-center px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium rounded-lg transition-colors shadow-sm"
-                              >
-                                <History className="w-4 h-4 mr-2" /> Audit
-                              </button>
+                              <span className="text-slate-400 text-xs font-medium">Completed</span>
                             )}
                           </td>
                         </tr>
@@ -380,7 +448,7 @@ export default function App() {
             </div>
           </>
         ) : activeTab === 'reports' ? (
-          <ReportsView data={reportsData} isLoading={isReportsLoading} />
+          <ReportsView data={reportsData} isLoading={isReportsLoading} stats={stats} />
         ) : (
           <IntakeView setActiveTab={setActiveTab} showToast={showToast} />
         )}
@@ -424,7 +492,7 @@ export default function App() {
 
 // Subcomponents
 
-function ReportsView({ data, isLoading }) {
+function ReportsView({ data, isLoading, stats }) {
   const handleExportCSV = () => {
     if (!data?.daily?.length) return;
     const headers = ['Licence Number', 'Applicant Name', 'Type', 'Collector Name', 'Phone', 'Verification', 'Date'];
@@ -450,59 +518,113 @@ function ReportsView({ data, isLoading }) {
     return <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>;
   }
 
+  const personalPickups = data?.daily?.filter(d => d.collection_type === 'Personal') || [];
+  const proxyPickups = data?.daily?.filter(d => d.collection_type === 'Proxy') || [];
+  const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
   return (
     <div className="space-y-8">
-      {/* Daily Collections */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <div>
-            <h3 className="font-bold text-slate-900">Today's Collection Log</h3>
-            <p className="text-sm text-slate-500">{data?.daily?.length || 0} cards processed today</p>
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Available in Stock" value={stats?.available || 0} icon={<CreditCard className="w-5 h-5 text-emerald-500" />} />
+        <StatCard title="Today's Personal Pickups" value={stats?.collected_personal || 0} icon={<User className="w-5 h-5 text-indigo-500" />} />
+        <StatCard title="Today's Proxy Pickups" value={stats?.collected_proxy || 0} icon={<Truck className="w-5 h-5 text-indigo-500" />} />
+        <StatCard title="Today's Total Collected" value={stats?.collected_total || 0} icon={<CheckCircle className="w-5 h-5 text-slate-500" />} />
+      </div>
+
+      <div className="flex justify-end space-x-2">
+        <button onClick={() => window.print()} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors flex items-center shadow-sm" title="Print Reports">
+          <Printer className="w-4 h-4 mr-2" /> Print Reports
+        </button>
+        <button onClick={handleExportCSV} className="px-4 py-2 bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors flex items-center shadow-sm" title="Export CSV">
+          <Download className="w-4 h-4 mr-2" /> Export CSV
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Personal Collections Ledger Card */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-200 bg-indigo-50 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-indigo-900 flex items-center">
+                <User className="w-5 h-5 mr-2" /> Personal Collections
+              </h3>
+              <p className="text-sm text-indigo-700 mt-1">{todayStr}</p>
+            </div>
+            <span className="bg-white text-indigo-700 font-bold px-3 py-1 rounded-full shadow-sm text-sm border border-indigo-100">
+              {personalPickups.length} Total
+            </span>
           </div>
-          <div className="flex space-x-2">
-            <button onClick={() => window.print()} className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg transition-colors" title="Print">
-              <Printer className="w-5 h-5" />
-            </button>
-            <button onClick={handleExportCSV} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center" title="Export CSV">
-              <Download className="w-5 h-5 mr-1" /> <span className="text-sm font-medium">Export</span>
-            </button>
+          <div className="overflow-x-auto flex-1 min-h-[300px]">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-white border-b border-slate-100 text-slate-500">
+                <tr>
+                  <th className="px-6 py-3 font-semibold">Applicant & DL Number</th>
+                  <th className="px-6 py-3 font-semibold">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {personalPickups.length === 0 ? (
+                  <tr><td colSpan="2" className="px-6 py-8 text-center text-slate-400">No personal collections today.</td></tr>
+                ) : personalPickups.map(row => (
+                  <tr key={row.collection_id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3">
+                      <div className="font-medium text-slate-900">{row.applicant_name}</div>
+                      <div className="text-xs text-slate-500">{row.licence_number} • {row.collector_phone}</div>
+                    </td>
+                    <td className="px-6 py-3 text-slate-500 whitespace-nowrap">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-right">
+            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wide mr-4">COB Total (Personal):</span>
+            <span className="text-lg font-bold text-slate-900">{personalPickups.length}</span>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-white border-b border-slate-100 text-slate-500">
-              <tr>
-                <th className="px-6 py-3 font-semibold">Licence / Applicant</th>
-                <th className="px-6 py-3 font-semibold">Collection Type</th>
-                <th className="px-6 py-3 font-semibold">Collector Info</th>
-                <th className="px-6 py-3 font-semibold">Verification</th>
-                <th className="px-6 py-3 font-semibold">Time</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(!data?.daily || data.daily.length === 0) ? (
-                <tr><td colSpan="5" className="px-6 py-8 text-center text-slate-400">No collections recorded today.</td></tr>
-              ) : data.daily.map(row => (
-                <tr key={row.collection_id} className="hover:bg-slate-50">
-                  <td className="px-6 py-3">
-                    <div className="font-medium text-slate-900">{row.licence_number}</div>
-                    <div className="text-xs text-slate-500">{row.applicant_name}</div>
-                  </td>
-                  <td className="px-6 py-3">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${row.collection_type === 'Personal' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                      {row.collection_type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3">
-                    <div className="text-slate-900">{row.collector_name}</div>
-                    <div className="text-xs text-slate-500">{row.collector_phone}</div>
-                  </td>
-                  <td className="px-6 py-3 text-slate-600 text-xs">{row.verification}</td>
-                  <td className="px-6 py-3 text-slate-500 whitespace-nowrap">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+
+        {/* Proxy Collections Ledger Card */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+          <div className="px-6 py-4 border-b border-slate-200 bg-emerald-50 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-emerald-900 flex items-center">
+                <Truck className="w-5 h-5 mr-2" /> Proxy Collections
+              </h3>
+              <p className="text-sm text-emerald-700 mt-1">{todayStr}</p>
+            </div>
+            <span className="bg-white text-emerald-700 font-bold px-3 py-1 rounded-full shadow-sm text-sm border border-emerald-100">
+              {proxyPickups.length} Total
+            </span>
+          </div>
+          <div className="overflow-x-auto flex-1 min-h-[300px]">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-white border-b border-slate-100 text-slate-500">
+                <tr>
+                  <th className="px-6 py-3 font-semibold">Proxy Info & Applicant</th>
+                  <th className="px-6 py-3 font-semibold">Time</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {proxyPickups.length === 0 ? (
+                  <tr><td colSpan="2" className="px-6 py-8 text-center text-slate-400">No proxy collections today.</td></tr>
+                ) : proxyPickups.map(row => (
+                  <tr key={row.collection_id} className="hover:bg-slate-50">
+                    <td className="px-6 py-3">
+                      <div className="font-medium text-slate-900">{row.collector_name} <span className="text-xs font-normal text-slate-500">({row.verification})</span></div>
+                      <div className="text-xs text-slate-600 mt-0.5">For: {row.applicant_name} ({row.licence_number})</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{row.collector_phone}</div>
+                    </td>
+                    <td className="px-6 py-3 text-slate-500 whitespace-nowrap align-top">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-right">
+            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wide mr-4">COB Total (Proxy):</span>
+            <span className="text-lg font-bold text-slate-900">{proxyPickups.length}</span>
+          </div>
         </div>
       </div>
 
@@ -752,13 +874,16 @@ function StatusBadge({ status, size = 'sm' }) {
 }
 
 function CollectionModal({ licence, onClose, onSuccess }) {
+  const todayDate = new Date().toISOString().split('T')[0];
   const [type, setType] = useState('Personal');
   const [formData, setFormData] = useState({
     collector_name: licence.applicant_name,
     collector_phone: licence.phone_number || '',
     collector_id_num: '',
     relationship: '',
-    idVerified: false
+    idVerified: false,
+    address: licence.address || '',
+    collection_date: todayDate
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -793,7 +918,9 @@ function CollectionModal({ licence, onClose, onSuccess }) {
           collector_phone: formData.collector_phone,
           collector_id_num: formData.collector_id_num,
           relationship: formData.relationship,
-          verification: type === 'Personal' && formData.idVerified ? 'Physical ID Checked' : 'Proxy Docs Checked'
+          verification: type === 'Personal' && formData.idVerified ? 'Physical ID Checked' : 'Proxy Docs Checked',
+          address: formData.address,
+          collection_date: formData.collection_date
         })
       });
 
@@ -808,8 +935,8 @@ function CollectionModal({ licence, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
           <h3 className="font-bold text-slate-800">Record Collection</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -842,47 +969,79 @@ function CollectionModal({ licence, onClose, onSuccess }) {
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
-              <input 
-                name="collector_name" value={formData.collector_name} onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number</label>
-              <input 
-                name="collector_phone" value={formData.collector_phone} onChange={handleChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                required
-              />
+            <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg flex justify-between items-center">
+              <div>
+                <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Applicant</p>
+                <p className="font-bold text-indigo-900">{licence.applicant_name}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">DL Number</p>
+                <p className="font-mono text-indigo-900 bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-100">{licence.licence_number}</p>
+              </div>
             </div>
 
-            {type === 'Proxy' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">{type === 'Personal' ? 'Applicant Phone' : 'Collector Phone'}</label>
+                <input 
+                  name="collector_phone" value={formData.collector_phone} onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Collection Date</label>
+                <input 
+                  type="date"
+                  name="collection_date" value={formData.collection_date} onChange={handleChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            {type === 'Personal' ? (
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Applicant Address</label>
+                <textarea 
+                  name="address" value={formData.address} onChange={handleChange} rows="2"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm resize-none"
+                  placeholder="Enter full residential address"
+                />
+              </div>
+            ) : (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">NIN / ID Number</label>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Collector Full Name</label>
                   <input 
-                    name="collector_id_num" value={formData.collector_id_num} onChange={handleChange}
+                    name="collector_name" value={formData.collector_name} onChange={handleChange}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Relationship to Applicant</label>
-                  <input 
-                    name="relationship" value={formData.relationship} onChange={handleChange} placeholder="e.g. Brother, Wife"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">NIN / ID Number</label>
+                    <input 
+                      name="collector_id_num" value={formData.collector_id_num} onChange={handleChange}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Relationship</label>
+                    <input 
+                      name="relationship" value={formData.relationship} onChange={handleChange} placeholder="e.g. Brother"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      required
+                    />
+                  </div>
                 </div>
               </>
             )}
 
             {type === 'Personal' && (
-              <label className="flex items-start space-x-3 mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md cursor-pointer">
+              <label className="flex items-start space-x-3 mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md cursor-pointer hover:bg-indigo-100 transition-colors">
                 <input 
                   type="checkbox" name="idVerified" checked={formData.idVerified} onChange={handleChange}
                   className="mt-0.5 h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500" 

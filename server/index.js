@@ -48,9 +48,9 @@ app.get('/api/dashboard/stats', async (req, res) => {
     const statsQuery = `
       SELECT 
         (SELECT COUNT(*) FROM licences WHERE status = 'Available') as available,
-        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Personal') as collected_personal,
-        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Proxy') as collected_proxy,
-        (SELECT COUNT(*) FROM licences WHERE status = 'Collected') as collected_total
+        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Personal' AND date(collection_date, 'localtime') = date('now', 'localtime')) as collected_personal,
+        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Proxy' AND date(collection_date, 'localtime') = date('now', 'localtime')) as collected_proxy,
+        (SELECT COUNT(*) FROM collections WHERE date(collection_date, 'localtime') = date('now', 'localtime')) as collected_total
     `;
     const result = await db.execute(statsQuery);
     res.json(result.rows[0]);
@@ -335,7 +335,9 @@ app.post('/api/collections', async (req, res) => {
     collector_id_num, 
     relationship, 
     verification, 
-    authorized_by 
+    authorized_by,
+    address,
+    collection_date
   } = req.body;
 
   if (!licence_id || !collection_type || !collector_name || !collector_phone) {
@@ -357,16 +359,17 @@ app.post('/api/collections', async (req, res) => {
     }
 
     const authId = authorized_by || 1;
+    const colDate = collection_date || new Date().toISOString();
 
     await db.batch([
       {
-        sql: `INSERT INTO collections (licence_id, collection_type, collector_name, collector_phone, collector_id_num, relationship, verification, authorized_by) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [licence_id, collection_type, collector_name, collector_phone, collector_id_num || null, relationship || null, verification || null, authId]
+        sql: `INSERT INTO collections (licence_id, collection_type, collector_name, collector_phone, collector_id_num, relationship, verification, authorized_by, collection_date) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [licence_id, collection_type, collector_name, collector_phone, collector_id_num || null, relationship || null, verification || null, authId, colDate]
       },
       {
-        sql: `UPDATE licences SET status = 'Collected' WHERE licence_id = ?`,
-        args: [licence_id]
+        sql: `UPDATE licences SET status = 'Collected', address = COALESCE(?, address) WHERE licence_id = ?`,
+        args: [address || null, licence_id]
       }
     ], 'write');
 
