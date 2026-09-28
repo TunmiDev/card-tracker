@@ -24,8 +24,9 @@ export default function App() {
   const [showAuditDrawer, setShowAuditDrawer] = useState(false);
   const [auditData, setAuditData] = useState(null);
   
-  const [reportsData, setReportsData] = useState({ daily: [], outstanding: [] });
+  const [reportsData, setReportsData] = useState({ daily: null, outstanding: [] });
   const [isReportsLoading, setIsReportsLoading] = useState(false);
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
 
   const [toastMessage, setToastMessage] = useState(null);
   const searchInputRef = useRef(null);
@@ -48,9 +49,9 @@ export default function App() {
 
   useEffect(() => {
     if (activeTab === 'reports') {
-      fetchReports();
+      fetchReports(reportDate);
     }
-  }, [activeTab]);
+  }, [activeTab, reportDate]);
 
   const fetchBatches = async () => {
     try {
@@ -72,16 +73,16 @@ export default function App() {
     }
   };
 
-  const fetchReports = async () => {
+  const fetchReports = async (dateStr) => {
     setIsReportsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/reports/daily`);
+      const res = await fetch(`http://localhost:5000/api/reports/daily?date=${dateStr}`);
       const dailyData = await res.json();
       const outRes = await fetch(`http://localhost:5000/api/reports/outstanding`);
       const outstandingData = await outRes.json();
       
       setReportsData({ 
-        daily: Array.isArray(dailyData) ? dailyData : [], 
+        daily: dailyData, 
         outstanding: Array.isArray(outstandingData) ? outstandingData : [] 
       });
     } catch (err) {
@@ -181,7 +182,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-10">
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-10 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <CreditCard className="w-7 h-7 text-indigo-600" />
@@ -448,7 +449,7 @@ export default function App() {
             </div>
           </>
         ) : activeTab === 'reports' ? (
-          <ReportsView data={reportsData} isLoading={isReportsLoading} stats={stats} />
+          <ReportsView data={reportsData} isLoading={isReportsLoading} stats={stats} reportDate={reportDate} setReportDate={setReportDate} />
         ) : (
           <IntakeView setActiveTab={setActiveTab} showToast={showToast} />
         )}
@@ -492,56 +493,268 @@ export default function App() {
 
 // Subcomponents
 
-function ReportsView({ data, isLoading, stats }) {
-  const handleExportCSV = () => {
-    if (!data?.daily?.length) return;
-    const headers = ['Licence Number', 'Applicant Name', 'Type', 'Collector Name', 'Phone', 'Verification', 'Date'];
-    const rows = data.daily.map(d => [
-      d.licence_number, d.applicant_name, d.collection_type, d.collector_name, d.collector_phone, 
-      d.verification, new Date(d.collection_date).toLocaleString()
-    ]);
-    
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n"
-      + rows.map(e => e.map(cell => `"${cell || ''}"`).join(",")).join("\n");
-      
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `daily_collections_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+function CustomDatePicker({ selectedDate, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate + 'T12:00:00'));
+  const [viewMode, setViewMode] = useState('days'); // 'days' | 'months' | 'years'
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setCurrentMonth(new Date(selectedDate + 'T12:00:00'));
+  }, [selectedDate]);
+
+  const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+  
+  const handlePrev = () => {
+    if (viewMode === 'days') setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+    else if (viewMode === 'months') setCurrentMonth(new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1));
+    else if (viewMode === 'years') setCurrentMonth(new Date(currentMonth.getFullYear() - 12, currentMonth.getMonth(), 1));
+  };
+  
+  const handleNext = () => {
+    if (viewMode === 'days') setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    else if (viewMode === 'months') setCurrentMonth(new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1));
+    else if (viewMode === 'years') setCurrentMonth(new Date(currentMonth.getFullYear() + 12, currentMonth.getMonth(), 1));
+  };
+
+  const handleSelectDate = (day) => {
+    const yyyy = currentMonth.getFullYear();
+    const mm = String(currentMonth.getMonth() + 1).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    onChange(`${yyyy}-${mm}-${dd}`);
+    setIsOpen(false);
+  };
+
+  const handleSelectMonth = (monthIndex) => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), monthIndex, 1));
+    setViewMode('days');
+  };
+
+  const handleSelectYear = (year) => {
+    setCurrentMonth(new Date(year, currentMonth.getMonth(), 1));
+    setViewMode('months');
+  };
+
+  const handleOpenToggle = () => {
+    if (!isOpen) {
+      setViewMode('days');
+      setCurrentMonth(new Date(selectedDate + 'T12:00:00'));
+    }
+    setIsOpen(!isOpen);
+  };
+
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+  const displayDate = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB');
+  
+  const selectedD = new Date(selectedDate + 'T12:00:00');
+  const startYear = Math.floor(currentMonth.getFullYear() / 12) * 12;
+  const yearsList = Array.from({ length: 12 }, (_, i) => startYear + i);
+
+  return (
+    <div className="relative flex-1 sm:flex-none" ref={containerRef}>
+      <button
+        onClick={handleOpenToggle}
+        className="flex items-center justify-between w-full sm:w-36 px-3 py-2 bg-transparent hover:bg-slate-200/50 rounded-lg text-sm font-semibold text-slate-700 transition-colors focus:outline-none"
+      >
+        <span>{displayDate}</span>
+        <Calendar className="w-4 h-4 text-indigo-500 ml-2" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full mt-2 right-0 sm:right-auto bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-72 z-50">
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={handlePrev} className="p-1.5 hover:bg-slate-100 rounded-md text-slate-600 transition-colors">
+              <ChevronDown className="w-4 h-4 rotate-90" />
+            </button>
+            
+            {viewMode === 'days' && (
+              <button onClick={() => setViewMode('months')} className="font-bold text-slate-800 text-sm hover:text-indigo-600 transition-colors">
+                {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+              </button>
+            )}
+            
+            {viewMode === 'months' && (
+              <button onClick={() => setViewMode('years')} className="font-bold text-slate-800 text-sm hover:text-indigo-600 transition-colors">
+                {currentMonth.getFullYear()}
+              </button>
+            )}
+            
+            {viewMode === 'years' && (
+              <div className="font-bold text-slate-800 text-sm">
+                {startYear} - {startYear + 11}
+              </div>
+            )}
+
+            <button onClick={handleNext} className="p-1.5 hover:bg-slate-100 rounded-md text-slate-600 transition-colors">
+              <ChevronDown className="w-4 h-4 -rotate-90" />
+            </button>
+          </div>
+
+          {viewMode === 'days' && (
+            <>
+              <div className="grid grid-cols-7 gap-1 mb-2">
+                {dayNames.map(day => (
+                  <div key={day} className="text-center text-xs font-semibold text-slate-400 py-1">{day}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: firstDayOfMonth }).map((_, index) => (
+                  <div key={`empty-${index}`} className="p-2"></div>
+                ))}
+                {Array.from({ length: daysInMonth }).map((_, index) => {
+                  const day = index + 1;
+                  const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const isSelected = selectedDate === dateStr;
+                  const today = new Date();
+                  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  const isToday = todayStr === dateStr;
+                  
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => handleSelectDate(day)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-full text-xs mx-auto transition-colors ${
+                        isSelected 
+                          ? 'bg-indigo-600 text-white font-bold shadow-sm' 
+                          : isToday 
+                            ? 'bg-indigo-50 text-indigo-700 font-bold' 
+                            : 'text-slate-700 hover:bg-slate-100 font-medium'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {viewMode === 'months' && (
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {monthNames.map((month, index) => {
+                const isSelected = index === selectedD.getMonth() && currentMonth.getFullYear() === selectedD.getFullYear();
+                return (
+                  <button
+                    key={month}
+                    onClick={() => handleSelectMonth(index)}
+                    className={`py-2 text-sm rounded-lg transition-colors font-medium ${
+                      isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {month.slice(0, 3)}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {viewMode === 'years' && (
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {yearsList.map(year => {
+                const isSelected = year === selectedD.getFullYear();
+                return (
+                  <button
+                    key={year}
+                    onClick={() => handleSelectYear(year)}
+                    className={`py-2 text-sm rounded-lg transition-colors font-medium ${
+                      isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {year}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
+
+
+  const getDayOffset = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
   };
 
   if (isLoading) {
     return <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>;
   }
 
-  const personalPickups = data?.daily?.filter(d => d.collection_type === 'Personal') || [];
-  const proxyPickups = data?.daily?.filter(d => d.collection_type === 'Proxy') || [];
-  const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const personalPickups = data?.daily?.personal || [];
+  const proxyPickups = data?.daily?.proxy || [];
+  
+  // Create a display string for the selected date
+  const displayDateStr = new Date(reportDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 print:space-y-0">
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
         <StatCard title="Available in Stock" value={stats?.available || 0} icon={<CreditCard className="w-5 h-5 text-emerald-500" />} />
-        <StatCard title="Today's Personal Pickups" value={stats?.collected_personal || 0} icon={<User className="w-5 h-5 text-indigo-500" />} />
-        <StatCard title="Today's Proxy Pickups" value={stats?.collected_proxy || 0} icon={<Truck className="w-5 h-5 text-indigo-500" />} />
-        <StatCard title="Today's Total Collected" value={stats?.collected_total || 0} icon={<CheckCircle className="w-5 h-5 text-slate-500" />} />
+        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Personal Pickups`} value={data?.daily?.total_personal || 0} icon={<User className="w-5 h-5 text-indigo-500" />} />
+        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Proxy Pickups`} value={data?.daily?.total_proxy || 0} icon={<Truck className="w-5 h-5 text-indigo-500" />} />
+        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Total Collected`} value={data?.daily?.total_collected || 0} icon={<CheckCircle className="w-5 h-5 text-slate-500" />} />
       </div>
 
-      <div className="flex justify-end space-x-2">
-        <button onClick={() => window.print()} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors flex items-center shadow-sm" title="Print Reports">
-          <Printer className="w-4 h-4 mr-2" /> Print Reports
-        </button>
-        <button onClick={handleExportCSV} className="px-4 py-2 bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors flex items-center shadow-sm" title="Export CSV">
-          <Download className="w-4 h-4 mr-2" /> Export CSV
-        </button>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-2 sm:p-3 rounded-2xl border border-slate-100 shadow-sm print:hidden">
+        {/* Date Selector Group */}
+        <div className="flex items-center p-1 bg-slate-100/80 rounded-xl w-full sm:w-auto">
+          <button 
+            onClick={() => setReportDate(getDayOffset(-1))}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-semibold rounded-lg transition-all ${reportDate === getDayOffset(-1) ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+          >
+            Yesterday
+          </button>
+          <button 
+            onClick={() => setReportDate(getDayOffset(0))}
+            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-semibold rounded-lg transition-all ${reportDate === getDayOffset(0) ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+          >
+            Today
+          </button>
+          
+          <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
+          
+          <CustomDatePicker selectedDate={reportDate} onChange={setReportDate} />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex w-full sm:w-auto">
+          <button onClick={() => window.print()} className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all flex items-center justify-center shadow-sm shadow-indigo-200 text-sm font-medium" title="Print Reports">
+            <Printer className="w-4 h-4 mr-2" /> Print Day Sheet
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Print-only Header */}
+      <div className="hidden print:block text-center pb-6 border-b border-slate-200 mb-8 pt-4">
+        <h2 className="text-3xl font-bold text-slate-900">Daily Handover Report</h2>
+        <p className="text-lg text-slate-600 mt-2">{displayDateStr}</p>
+        <div className="flex justify-center space-x-12 mt-6 text-base text-slate-600">
+          <span>Personal Collections: <strong className="text-slate-900">{personalPickups.length}</strong></span>
+          <span>Proxy Collections: <strong className="text-slate-900">{proxyPickups.length}</strong></span>
+          <span>Total Collected: <strong className="text-slate-900">{personalPickups.length + proxyPickups.length}</strong></span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 print:block print:space-y-8">
         {/* Personal Collections Ledger Card */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div className="px-6 py-4 border-b border-slate-200 bg-indigo-50 flex justify-between items-center">
@@ -549,7 +762,7 @@ function ReportsView({ data, isLoading, stats }) {
               <h3 className="font-bold text-indigo-900 flex items-center">
                 <User className="w-5 h-5 mr-2" /> Personal Collections
               </h3>
-              <p className="text-sm text-indigo-700 mt-1">{todayStr}</p>
+              <p className="text-sm text-indigo-700 mt-1">{displayDateStr}</p>
             </div>
             <span className="bg-white text-indigo-700 font-bold px-3 py-1 rounded-full shadow-sm text-sm border border-indigo-100">
               {personalPickups.length} Total
@@ -565,21 +778,21 @@ function ReportsView({ data, isLoading, stats }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {personalPickups.length === 0 ? (
-                  <tr><td colSpan="2" className="px-6 py-8 text-center text-slate-400">No personal collections today.</td></tr>
+                  <tr><td colSpan="2" className="px-6 py-12 text-center text-slate-400">No personal collections today.</td></tr>
                 ) : personalPickups.map(row => (
                   <tr key={row.collection_id} className="hover:bg-slate-50">
-                    <td className="px-6 py-3">
-                      <div className="font-medium text-slate-900">{row.applicant_name}</div>
-                      <div className="text-xs text-slate-500">{row.licence_number} • {row.collector_phone}</div>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-700 uppercase">{row.applicant_name}</div>
+                      <div className="text-xs text-slate-400 mt-1">{row.licence_number} • {row.collector_phone}</div>
                     </td>
-                    <td className="px-6 py-3 text-slate-500 whitespace-nowrap">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-right">
-            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wide mr-4">COB Total (Personal):</span>
+            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide mr-4">COB TOTAL (PERSONAL):</span>
             <span className="text-lg font-bold text-slate-900">{personalPickups.length}</span>
           </div>
         </div>
@@ -591,7 +804,7 @@ function ReportsView({ data, isLoading, stats }) {
               <h3 className="font-bold text-emerald-900 flex items-center">
                 <Truck className="w-5 h-5 mr-2" /> Proxy Collections
               </h3>
-              <p className="text-sm text-emerald-700 mt-1">{todayStr}</p>
+              <p className="text-sm text-emerald-700 mt-1">{displayDateStr}</p>
             </div>
             <span className="bg-white text-emerald-700 font-bold px-3 py-1 rounded-full shadow-sm text-sm border border-emerald-100">
               {proxyPickups.length} Total
@@ -607,64 +820,27 @@ function ReportsView({ data, isLoading, stats }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {proxyPickups.length === 0 ? (
-                  <tr><td colSpan="2" className="px-6 py-8 text-center text-slate-400">No proxy collections today.</td></tr>
+                  <tr><td colSpan="2" className="px-6 py-12 text-center text-slate-400">No proxy collections today.</td></tr>
                 ) : proxyPickups.map(row => (
                   <tr key={row.collection_id} className="hover:bg-slate-50">
-                    <td className="px-6 py-3">
+                    <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{row.collector_name} <span className="text-xs font-normal text-slate-500">({row.verification})</span></div>
-                      <div className="text-xs text-slate-600 mt-0.5">For: {row.applicant_name} ({row.licence_number})</div>
+                      <div className="text-xs text-slate-600 mt-1">For: {row.applicant_name} ({row.licence_number})</div>
                       <div className="text-xs text-slate-500 mt-0.5">{row.collector_phone}</div>
                     </td>
-                    <td className="px-6 py-3 text-slate-500 whitespace-nowrap align-top">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td className="px-6 py-4 text-slate-500 whitespace-nowrap align-top">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-right">
-            <span className="text-sm font-semibold text-slate-600 uppercase tracking-wide mr-4">COB Total (Proxy):</span>
+            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide mr-4">COB TOTAL (PROXY):</span>
             <span className="text-lg font-bold text-slate-900">{proxyPickups.length}</span>
           </div>
         </div>
       </div>
 
-      {/* Outstanding Cards */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <h3 className="font-bold text-slate-900 flex items-center">
-            <Clock className="w-5 h-5 mr-2 text-rose-500" /> Stale / Outstanding Cards {'>'}30 Days
-          </h3>
-          <p className="text-sm text-slate-500">{data?.outstanding?.length || 0} cards pending pickup</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-white border-b border-slate-100 text-slate-500">
-              <tr>
-                <th className="px-6 py-3 font-semibold">Licence Number</th>
-                <th className="px-6 py-3 font-semibold">Applicant Name</th>
-                <th className="px-6 py-3 font-semibold">Phone Number</th>
-                <th className="px-6 py-3 font-semibold">Arrival Date</th>
-                <th className="px-6 py-3 font-semibold text-right">Days Pending</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(!data?.outstanding || data.outstanding.length === 0) ? (
-                <tr><td colSpan="5" className="px-6 py-8 text-center text-slate-400">No stale cards found.</td></tr>
-              ) : data.outstanding.map(row => (
-                <tr key={row.licence_id} className="hover:bg-slate-50">
-                  <td className="px-6 py-3 font-medium text-slate-900">{row.licence_number}</td>
-                  <td className="px-6 py-3 text-slate-700">{row.applicant_name}</td>
-                  <td className="px-6 py-3 text-slate-600">{row.phone_number}</td>
-                  <td className="px-6 py-3 text-slate-500">{new Date(row.date_received).toLocaleDateString()}</td>
-                  <td className="px-6 py-3 text-right">
-                    <span className="font-bold text-rose-600">{row.days_pending}</span> <span className="text-xs text-slate-500">days</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }
@@ -899,7 +1075,7 @@ function CollectionModal({ licence, onClose, onSuccess }) {
     if (type === 'Personal') {
       return formData.collector_name && formData.collector_phone && formData.idVerified;
     }
-    return formData.collector_name && formData.collector_phone && formData.collector_id_num && formData.relationship;
+    return formData.collector_name && formData.collector_phone && formData.relationship;
   };
 
   const handleSubmit = async (e) => {
@@ -1021,11 +1197,10 @@ function CollectionModal({ licence, onClose, onSuccess }) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">NIN / ID Number</label>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">NIN / ID Number (Optional)</label>
                     <input 
                       name="collector_id_num" value={formData.collector_id_num} onChange={handleChange}
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                      required
                     />
                   </div>
                   <div>

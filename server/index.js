@@ -359,7 +359,7 @@ app.post('/api/collections', async (req, res) => {
     }
 
     const authId = authorized_by || 1;
-    const colDate = collection_date || new Date().toISOString();
+    const colDate = new Date().toISOString();
 
     await db.batch([
       {
@@ -502,18 +502,35 @@ app.get('/api/licences/:id/history', async (req, res) => {
 
 // GET /api/reports/daily
 app.get('/api/reports/daily', async (req, res) => {
+  const targetDate = req.query.date || new Date().toISOString().split('T')[0];
   try {
     const dailyQuery = `
       SELECT 
-        c.collection_id, c.collection_type, c.collection_date, c.collector_name, c.collector_phone, c.verification,
-        l.licence_number, l.applicant_name
+        c.collection_id, c.collection_type, c.collection_date, c.collector_name, c.collector_phone, c.verification, c.relationship,
+        l.licence_number, l.applicant_name, l.address
       FROM collections c
       JOIN licences l ON c.licence_id = l.licence_id
-      WHERE date(c.collection_date) = date('now')
+      WHERE date(c.collection_date, 'localtime') = ?
       ORDER BY c.collection_date DESC
     `;
-    const result = await db.execute(dailyQuery);
-    res.json(result.rows);
+    const result = await db.execute({ sql: dailyQuery, args: [targetDate] });
+    
+    const personal = [];
+    const proxy = [];
+    
+    result.rows.forEach(row => {
+      if (row.collection_type === 'Personal') personal.push(row);
+      else if (row.collection_type === 'Proxy') proxy.push(row);
+    });
+
+    res.json({
+      date: targetDate,
+      personal,
+      proxy,
+      total_personal: personal.length,
+      total_proxy: proxy.length,
+      total_collected: personal.length + proxy.length
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
