@@ -50,7 +50,9 @@ app.get('/api/dashboard/stats', async (req, res) => {
         (SELECT COUNT(*) FROM licences WHERE status = 'Available') as available,
         (SELECT COUNT(*) FROM collections WHERE collection_type = 'Personal' AND date(collection_date, 'localtime') = date('now', 'localtime')) as collected_personal,
         (SELECT COUNT(*) FROM collections WHERE collection_type = 'Proxy' AND date(collection_date, 'localtime') = date('now', 'localtime')) as collected_proxy,
-        (SELECT COUNT(*) FROM collections WHERE date(collection_date, 'localtime') = date('now', 'localtime')) as collected_total
+        (SELECT COUNT(*) FROM collections WHERE date(collection_date, 'localtime') = date('now', 'localtime')) as collected_total,
+        (SELECT COUNT(*) FROM licences) as total_ingested,
+        (SELECT COUNT(*) FROM licences WHERE status = 'Collected') as total_collected_all_time
     `;
     const result = await db.execute(statsQuery);
     res.json(result.rows[0]);
@@ -101,6 +103,55 @@ app.get('/api/licences/search', async (req, res) => {
       });
     }
     res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/licences/master
+app.get('/api/licences/master', async (req, res) => {
+  const { filter, page = 1, limit = 25 } = req.query;
+  const offset = (Number(page) - 1) * Number(limit);
+
+  try {
+    let whereClause = '';
+    let args = [];
+    if (filter === 'collected') {
+      whereClause = "WHERE l.status = 'Collected'";
+    } else if (filter === 'available') {
+      whereClause = "WHERE l.status = 'Available'";
+    }
+
+    const countQuery = `SELECT COUNT(*) as total FROM licences l ${whereClause}`;
+    const countRes = await db.execute({ sql: countQuery, args });
+    const total = countRes.rows[0].total;
+
+    const dataQuery = `
+      SELECT 
+        l.licence_id, l.licence_number, l.applicant_name, l.phone_number, l.pickup_code, l.status,
+        d.dispatch_code as batch_source,
+        c.collection_date, c.collector_name, c.collector_phone
+      FROM licences l
+      LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
+      LEFT JOIN collections c ON l.licence_id = c.licence_id
+      ${whereClause}
+      ORDER BY l.licence_id DESC
+      LIMIT ? OFFSET ?
+    `;
+    const dataArgs = [...args, Number(limit), Number(offset)];
+    
+    const result = await db.execute({ sql: dataQuery, args: dataArgs });
+    
+    res.json({
+      data: result.rows,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -226,7 +277,7 @@ app.get('/api/dispatches', async (req, res) => {
         (SELECT COUNT(*) FROM licences WHERE dispatch_id = d.dispatch_id AND status = 'Available') as available_count,
         (SELECT COUNT(*) FROM licences WHERE dispatch_id = d.dispatch_id AND status = 'Collected') as collected_count
       FROM dispatches d
-      ORDER BY d.dispatch_id DESC
+      ORDER BY d.dispatch_date DESC, d.dispatch_id DESC
     `);
     res.json(result.rows);
   } catch (err) {
@@ -251,6 +302,59 @@ app.get('/api/dispatches/:id/licences', async (req, res) => {
   } catch (err) {
     console.error('Failed to fetch dispatch licences:', err);
     res.status(500).json({ error: 'Failed to fetch dispatch licences' });
+  }
+});
+
+// PUT /api/dispatches/:id
+// Renames a batch/dispatch
+app.put('/api/dispatches/:id', async (req, res) => {
+  const { id } = req.params;
+  const { dispatch_code } = req.body;
+  if (!dispatch_code || !dispatch_code.trim()) {
+    return res.status(400).json({ error: 'New batch name is required' });
+  }
+  try {
+    await db.execute({
+      sql: 'UPDATE dispatches SET dispatch_code = ? WHERE dispatch_id = ?',
+      args: [dispatch_code.trim(), id]
+    });
+    res.json({ success: true, message: 'Batch renamed successfully' });
+  } catch (err) {
+    console.error('Failed to rename dispatch:', err);
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+       return res.status(400).json({ error: 'A batch with this name already exists' });
+    }
+    res.status(500).json({ error: 'Failed to rename batch' });
+  }
+});
+
+// DELETE /api/dispatches/:id
+// Deletes a batch and all its associated records
+app.delete('/api/dispatches/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.batch([
+      {
+        sql: 'DELETE FROM collections WHERE licence_id IN (SELECT licence_id FROM licences WHERE dispatch_id = ?)',
+        args: [id]
+      },
+      {
+        sql: 'DELETE FROM missing_licences WHERE licence_id IN (SELECT licence_id FROM licences WHERE dispatch_id = ?)',
+        args: [id]
+      },
+      {
+        sql: 'DELETE FROM licences WHERE dispatch_id = ?',
+        args: [id]
+      },
+      {
+        sql: 'DELETE FROM dispatches WHERE dispatch_id = ?',
+        args: [id]
+      }
+    ], 'write');
+    res.json({ success: true, message: 'Batch deleted successfully' });
+  } catch (err) {
+    console.error('Failed to delete dispatch:', err);
+    res.status(500).json({ error: 'Failed to delete batch' });
   }
 });
 

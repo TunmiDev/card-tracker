@@ -3,7 +3,7 @@ import {
   CreditCard, Truck, AlertTriangle, CheckCircle, Search, 
   User, Calendar, MapPin, Key, X, Check, FileText,
   History, Printer, Download, Clock, Activity, ListChecks, FileSpreadsheet,
-  PackagePlus, UploadCloud, FileCheck, ChevronDown
+  PackagePlus, UploadCloud, FileCheck, ChevronDown, Edit2, Trash2
 } from 'lucide-react';
 
 export default function App() {
@@ -451,7 +451,7 @@ export default function App() {
         ) : activeTab === 'reports' ? (
           <ReportsView data={reportsData} isLoading={isReportsLoading} stats={stats} reportDate={reportDate} setReportDate={setReportDate} />
         ) : (
-          <IntakeView setActiveTab={setActiveTab} showToast={showToast} />
+          <IntakeView setActiveTab={setActiveTab} showToast={showToast} stats={stats} />
         )}
       </main>
 
@@ -1244,7 +1244,7 @@ function CollectionModal({ licence, onClose, onSuccess }) {
   );
 }
 
-function IntakeView({ setActiveTab, showToast }) {
+function IntakeView({ setActiveTab, showToast, stats }) {
   const [isUploading, setIsUploading] = useState(false);
   const [stagedManifest, setStagedManifest] = useState(null);
   const [records, setRecords] = useState([]);
@@ -1259,6 +1259,56 @@ function IntakeView({ setActiveTab, showToast }) {
   const [isViewing, setIsViewing] = useState(false);
   const [modalSearchQuery, setModalSearchQuery] = useState('');
   const fileInputRef = useRef(null);
+
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, dispatch: null });
+
+  const handleContextMenu = (e, dispatch) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      dispatch
+    });
+  };
+
+  useEffect(() => {
+    const closeMenu = () => setContextMenu((prev) => ({ ...prev, visible: false }));
+    if (contextMenu.visible) {
+      window.addEventListener('click', closeMenu);
+      return () => window.removeEventListener('click', closeMenu);
+    }
+  }, [contextMenu.visible]);
+
+  const [activeCard, setActiveCard] = useState(null);
+  const [masterData, setMasterData] = useState([]);
+  const [masterPagination, setMasterPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [isMasterLoading, setIsMasterLoading] = useState(false);
+
+  const fetchMasterData = async (filter, page = 1) => {
+    setIsMasterLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/licences/master?filter=${filter}&page=${page}&limit=25`);
+      if (res.ok) {
+        const data = await res.json();
+        setMasterData(data.data);
+        setMasterPagination(data.pagination);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsMasterLoading(false);
+    }
+  };
+
+  const handleCardClick = (cardType) => {
+    if (activeCard === cardType) {
+      setActiveCard(null);
+    } else {
+      setActiveCard(cardType);
+      fetchMasterData(cardType, 1);
+    }
+  };
 
   const fetchManifestContents = async (id, name) => {
     setIsViewing(true);
@@ -1293,6 +1343,45 @@ function IntakeView({ setActiveTab, showToast }) {
   useEffect(() => {
     fetchDispatches();
   }, []);
+
+  const handleRenameBatch = async (dispatch) => {
+    const newName = prompt(`Enter new name for batch ${dispatch.dispatch_code}:`, dispatch.dispatch_code);
+    if (!newName || newName.trim() === '' || newName === dispatch.dispatch_code) return;
+    
+    try {
+      const res = await fetch(`http://localhost:5000/api/dispatches/${dispatch.dispatch_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dispatch_code: newName })
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to rename');
+      }
+      showToast('Batch renamed successfully');
+      fetchDispatches();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteBatch = async (dispatch) => {
+    if (!window.confirm(`Are you sure you want to delete batch ${dispatch.dispatch_code}? This will remove all associated licences that were in this batch. This action cannot be undone.`)) return;
+    
+    try {
+      const res = await fetch(`http://localhost:5000/api/dispatches/${dispatch.dispatch_id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to delete');
+      }
+      showToast('Batch deleted successfully');
+      fetchDispatches();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -1378,6 +1467,145 @@ function IntakeView({ setActiveTab, showToast }) {
 
   return (
     <div className="space-y-6">
+      {/* 3 Top Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div 
+          onClick={() => handleCardClick('all')} 
+          className={`bg-white p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'all' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+        >
+          <div className="flex items-start space-x-4">
+            <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+              <PackagePlus className="w-5 h-5 text-indigo-500" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Ingested Licences</p>
+              <p className="text-2xl font-bold text-slate-900">{stats?.total_ingested || 0}</p>
+            </div>
+          </div>
+        </div>
+
+        <div 
+          onClick={() => handleCardClick('collected')} 
+          className={`bg-white p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'collected' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+        >
+          <div className="flex items-start space-x-4">
+            <div className="p-3 bg-slate-100 rounded-lg border border-slate-200">
+              <CheckCircle className="w-5 h-5 text-slate-500" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Collected</p>
+              <p className="text-2xl font-bold text-slate-900">{stats?.total_collected_all_time || 0}</p>
+            </div>
+          </div>
+        </div>
+
+        <div 
+          onClick={() => handleCardClick('available')} 
+          className={`bg-white p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'available' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+        >
+          <div className="flex items-start space-x-4">
+            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+              <CreditCard className="w-5 h-5 text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Available in Stock</p>
+              <p className="text-2xl font-bold text-slate-900">{stats?.available || 0}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Master Data Table */}
+      {activeCard && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h3 className="font-bold text-slate-900 flex items-center">
+              <FileText className="w-5 h-5 mr-2 text-indigo-500" /> 
+              {activeCard === 'all' ? 'All Ingested Licences' : activeCard === 'collected' ? 'Collected Licences' : 'Available Licences'}
+            </h3>
+            <span className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+              {masterPagination.total} Records
+            </span>
+          </div>
+          
+          <div className="overflow-x-auto min-h-[300px]">
+            {isMasterLoading ? (
+              <div className="p-12 flex justify-center items-center">
+                <Activity className="w-8 h-8 text-indigo-500 animate-spin" />
+              </div>
+            ) : masterData.length === 0 ? (
+              <div className="p-12 text-center text-slate-500">No records found.</div>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead className="bg-white border-b border-slate-100 text-slate-500">
+                  <tr>
+                    <th className="px-6 py-3 font-semibold">DL Number</th>
+                    <th className="px-6 py-3 font-semibold">Applicant Name</th>
+                    <th className="px-6 py-3 font-semibold">Phone Number</th>
+                    <th className="px-6 py-3 font-semibold">Pickup Code</th>
+                    <th className="px-6 py-3 font-semibold">Batch Source</th>
+                    {activeCard === 'collected' && (
+                      <>
+                        <th className="px-6 py-3 font-semibold">Collector</th>
+                        <th className="px-6 py-3 font-semibold">Date Collected</th>
+                      </>
+                    )}
+                    <th className="px-6 py-3 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {masterData.map((rec) => (
+                    <tr key={rec.licence_id} className="hover:bg-slate-50">
+                      <td className="px-6 py-3 font-medium text-indigo-700">{rec.licence_number}</td>
+                      <td className="px-6 py-3 text-slate-900">{rec.applicant_name}</td>
+                      <td className="px-6 py-3 text-slate-600">{rec.phone_number || '-'}</td>
+                      <td className="px-6 py-3 font-medium text-slate-700">{rec.pickup_code || '-'}</td>
+                      <td className="px-6 py-3 text-slate-500">{rec.batch_source || '-'}</td>
+                      {activeCard === 'collected' && (
+                        <>
+                          <td className="px-6 py-3 text-slate-900">{rec.collector_name || '-'}</td>
+                          <td className="px-6 py-3 text-slate-500">{rec.collection_date ? new Date(rec.collection_date).toLocaleDateString() : '-'}</td>
+                        </>
+                      )}
+                      <td className="px-6 py-3">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${rec.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
+                          {rec.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          
+          {/* Pagination Controls */}
+          {!isMasterLoading && masterPagination.totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between">
+              <span className="text-sm text-slate-500">
+                Page <span className="font-medium text-slate-900">{masterPagination.page}</span> of <span className="font-medium text-slate-900">{masterPagination.totalPages}</span>
+              </span>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => fetchMasterData(activeCard, masterPagination.page - 1)}
+                  disabled={masterPagination.page === 1}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button 
+                  onClick={() => fetchMasterData(activeCard, masterPagination.page + 1)}
+                  disabled={masterPagination.page === masterPagination.totalPages}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden p-6">
         <h2 className="text-xl font-bold text-slate-900 mb-2">MVAA Ojo Station - Dispatch & Ingestion Desk</h2>
         <p className="text-sm text-slate-500 mb-6">Upload Lagos State HQ Manifest. System will automatically filter and extract Ojo Station records.</p>
@@ -1522,10 +1750,18 @@ function IntakeView({ setActiveTab, showToast }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {pastDispatches.map((dispatch) => (
-                  <tr key={dispatch.dispatch_id} className="hover:bg-slate-50">
+                  <tr 
+                    key={dispatch.dispatch_id} 
+                    className="hover:bg-slate-50 cursor-context-menu"
+                    onContextMenu={(e) => handleContextMenu(e, dispatch)}
+                    onClick={(e) => handleContextMenu(e, dispatch)}
+                  >
                     <td className="px-6 py-4 font-medium text-slate-900">
                       <button 
-                        onClick={() => fetchManifestContents(dispatch.dispatch_id, dispatch.dispatch_code)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetchManifestContents(dispatch.dispatch_id, dispatch.dispatch_code);
+                        }}
                         className="flex items-center hover:text-indigo-600 hover:underline transition-colors focus:outline-none"
                         title="Click to view the contents of this manifest"
                       >
@@ -1630,6 +1866,38 @@ function IntakeView({ setActiveTab, showToast }) {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {contextMenu.visible && contextMenu.dispatch && (
+        <div 
+          className="fixed bg-white border border-slate-200 rounded-lg shadow-xl z-[100] overflow-hidden w-48 transition-all"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
+            <p className="text-xs font-semibold text-slate-500 truncate">
+              {contextMenu.dispatch.dispatch_code}
+            </p>
+          </div>
+          <button 
+            onClick={() => {
+              setContextMenu({ ...contextMenu, visible: false });
+              handleRenameBatch(contextMenu.dispatch);
+            }}
+            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center transition-colors"
+          >
+            <Edit2 className="w-4 h-4 mr-2" /> Rename Batch
+          </button>
+          <button 
+            onClick={() => {
+              setContextMenu({ ...contextMenu, visible: false });
+              handleDeleteBatch(contextMenu.dispatch);
+            }}
+            className="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center transition-colors"
+          >
+            <Trash2 className="w-4 h-4 mr-2" /> Delete Batch
+          </button>
         </div>
       )}
     </div>
