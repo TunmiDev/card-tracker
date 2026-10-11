@@ -6,6 +6,8 @@ import {
   PackagePlus, UploadCloud, FileCheck, ChevronDown, Edit2, Trash2
 } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('terminal');
   const [stats, setStats] = useState(null);
@@ -55,7 +57,7 @@ export default function App() {
 
   const fetchBatches = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/dispatches');
+      const res = await fetch(`${API_BASE_URL}/api/dispatches`);
       const data = await res.json();
       setBatches(data);
     } catch (err) {
@@ -65,7 +67,7 @@ export default function App() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/dashboard/stats');
+      const res = await fetch(`${API_BASE_URL}/api/dashboard/stats`);
       const data = await res.json();
       setStats(data);
     } catch (err) {
@@ -76,9 +78,9 @@ export default function App() {
   const fetchReports = async (dateStr) => {
     setIsReportsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/reports/daily?date=${dateStr}`);
+      const res = await fetch(`${API_BASE_URL}/api/reports/daily?date=${dateStr}`);
       const dailyData = await res.json();
-      const outRes = await fetch(`http://localhost:5000/api/reports/outstanding`);
+      const outRes = await fetch(`${API_BASE_URL}/api/reports/outstanding`);
       const outstandingData = await outRes.json();
       
       setReportsData({ 
@@ -105,7 +107,7 @@ export default function App() {
     setIsSearching(true);
     setHasSearched(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/licences/search?q=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`${API_BASE_URL}/api/licences/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
       
       if (Array.isArray(data)) {
@@ -137,7 +139,7 @@ export default function App() {
 
   const handleViewAudit = async (licence) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/licences/${licence.licence_id}/history`);
+      const res = await fetch(`${API_BASE_URL}/api/licences/${licence.licence_id}/history`);
       const data = await res.json();
       setAuditData({ licence, ...data });
       setShowAuditDrawer(true);
@@ -153,7 +155,7 @@ export default function App() {
     if (!resolution) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/missing/${licence.missing_id}/resolve`, {
+      const res = await fetch(`${API_BASE_URL}/api/missing/${licence.missing_id}/resolve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolution })
@@ -182,67 +184,48 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-10 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <CreditCard className="w-7 h-7 text-indigo-600" />
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Card Tracker</h1>
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-20 print:hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4">
+          <div className="flex items-center justify-between w-full sm:w-auto">
+            <div className="flex items-center space-x-2">
+              <CreditCard className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600" />
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Card Tracker</h1>
+            </div>
+            <span className="sm:hidden text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+              MVAA Ojo
+            </span>
           </div>
           
-          <div className="flex-1 flex justify-center">
-            <div className="flex p-1 bg-slate-100 rounded-lg">
+          <div className="w-full sm:w-auto flex justify-center">
+            <div className="grid grid-cols-3 sm:flex p-1 bg-slate-100 rounded-lg w-full sm:w-auto gap-1">
               <button 
                 onClick={() => setActiveTab('terminal')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center ${activeTab === 'terminal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-2.5 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all flex items-center justify-center ${activeTab === 'terminal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                <Activity className="w-4 h-4 mr-2" />
-                Desk Terminal
+                <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="truncate">Desk Terminal</span>
               </button>
               <button 
                 onClick={() => setActiveTab('reports')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center ${activeTab === 'reports' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-2.5 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all flex items-center justify-center ${activeTab === 'reports' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Daily Reports
+                <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="truncate">Daily Reports</span>
               </button>
               <button 
                 onClick={() => setActiveTab('intake')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center ${activeTab === 'intake' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`px-2.5 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all flex items-center justify-center ${activeTab === 'intake' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                <PackagePlus className="w-4 h-4 mr-2" />
-                Intake / Dispatch
+                <PackagePlus className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+                <span className="truncate">Intake / Dispatch</span>
               </button>
             </div>
           </div>
-
-          {activeTab !== 'terminal' && (
-            <form onSubmit={handleSearch} className="w-64 relative group">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500" />
-              <input 
-                ref={searchInputRef}
-                type="text" 
-                value={searchQuery}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSearchQuery(val);
-                  if (!val.trim()) {
-                    setSearchResults([]);
-                    setHasSearched(false);
-                  }
-                }}
-                placeholder="Search..." 
-                className="w-full pl-9 pr-8 py-1.5 bg-slate-100 border border-transparent rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm transition-all"
-              />
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-                <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-xs font-medium text-slate-400 bg-white border border-slate-200 rounded">⌘K</kbd>
-              </div>
-            </form>
-          )}
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 w-full">
         {/* Toast */}
         {toastMessage && (
           <div className="fixed bottom-4 right-4 bg-emerald-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-bounce z-50">
@@ -254,11 +237,11 @@ export default function App() {
         {activeTab === 'terminal' ? (
           <>
             {/* Unified Search and Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[600px]">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-[500px] sm:min-h-[600px]">
               {/* Header Title */}
-              <div className="px-6 pt-6 pb-2 border-b border-slate-100 bg-slate-50/50">
-                <div className="flex items-center space-x-3">
-                  <h2 className="text-xl font-bold text-slate-800 tracking-tight">
+              <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">
                     Dispatch Index
                   </h2>
                   <span className="bg-slate-200 text-slate-700 text-xs px-2.5 py-0.5 rounded-full font-medium">2026 Till Date</span>
@@ -266,15 +249,15 @@ export default function App() {
               </div>
 
               {/* Search Filter Control */}
-              <div className="p-6 border-b border-slate-200 bg-white flex flex-col items-center">
+              <div className="p-4 sm:p-6 border-b border-slate-200 bg-white flex flex-col items-center">
                 <div className="w-full max-w-2xl flex flex-col items-center">
                   {/* Input Field */}
-                  <div className="relative w-full flex gap-3 items-center group">
-                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors">
-                      <Search className="w-5 h-5" />
+                  <div className="relative w-full flex gap-2 sm:gap-3 items-center group">
+                    <div className="absolute left-3.5 sm:left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                      <Search className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <input
-                      ref={activeTab === 'terminal' ? searchInputRef : null}
+                      ref={searchInputRef}
                       type="text"
                       value={searchQuery}
                       onChange={(e) => {
@@ -292,11 +275,11 @@ export default function App() {
                         }
                       }}
                       placeholder="Type DL Number or Applicant Name and hit Enter..."
-                      className="w-full pl-12 pr-20 py-3 bg-white border-2 border-slate-300 rounded focus:outline-none focus:border-blue-500 text-lg uppercase font-mono shadow-sm transition-colors text-slate-900 placeholder:text-base placeholder:text-slate-400 placeholder:normal-case placeholder:font-sans"
+                      className="w-full pl-10 sm:pl-12 pr-12 sm:pr-20 py-2.5 sm:py-3 bg-white border-2 border-slate-300 rounded focus:outline-none focus:border-blue-500 text-base sm:text-lg uppercase font-mono shadow-sm transition-colors text-slate-900 placeholder:text-sm sm:placeholder:text-base placeholder:text-slate-400 placeholder:normal-case placeholder:font-sans"
                     />
                     {!searchQuery ? (
-                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                        <kbd className="hidden lg:inline-flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded shadow-sm">
+                      <div className="absolute right-3.5 sm:right-4 top-1/2 transform -translate-y-1/2">
+                        <kbd className="hidden sm:inline-flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded shadow-sm">
                           <span>↵</span>
                           <span>Enter</span>
                         </kbd>
@@ -308,9 +291,9 @@ export default function App() {
                           setSearchResults([]);
                           setHasSearched(false);
                         }}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                        className="absolute right-3.5 sm:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
                       >
-                        <X className="w-5 h-5" />
+                        <X className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     )}
                   </div>
@@ -321,124 +304,128 @@ export default function App() {
                 {isSearching ? (
                   <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-blue-500 animate-spin" /></div>
                 ) : !hasSearched ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-12 mt-16">
-                    <div className="bg-slate-100 p-5 rounded-full mb-4 ring-8 ring-slate-50">
-                      <Search className="w-12 h-12 text-slate-300" />
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8 sm:p-12 mt-8 sm:mt-16">
+                    <div className="bg-slate-100 p-4 sm:p-5 rounded-full mb-4 ring-8 ring-slate-50">
+                      <Search className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-800 mb-1">Search for a Driver's License</h3>
-                    <p className="text-slate-500 max-w-sm">Enter a DL Number or Applicant Name in the search bar above to begin.</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">Search for a Driver's License</h3>
+                    <p className="text-slate-500 text-sm max-w-sm">Enter a DL Number or Applicant Name in the search bar above to begin.</p>
                   </div>
                 ) : !Array.isArray(filteredResults) || filteredResults.length === 0 ? (
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-indigo-700 border-b border-indigo-800 text-white font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
-                      <tr>
-                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">dl_number</th>
-                        <th className="px-6 py-4 tracking-wider">applicant name</th>
-                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">pickup Code</th>
-                        <th className="px-6 py-4 tracking-wider">status</th>
-                        <th className="px-6 py-4 tracking-wider">action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 bg-white">
-                      <tr><td colSpan="5" className="text-center p-12 text-sm text-slate-500">No record found for this DL Number or Name.</td></tr>
-                    </tbody>
-                  </table>
-                ) : (
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-indigo-600 border-b border-indigo-800 text-white font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
-                      <tr>
-                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">dl number</th>
-                        <th className="px-6 py-4 tracking-wider">applicant name</th>
-                        <th className="px-6 py-4 tracking-wider whitespace-nowrap">pickup Code</th>
-                        <th className="px-6 py-4 tracking-wider">status</th>
-                        <th className="px-6 py-4 tracking-wider">action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 bg-white">
-                      {paginatedResults.map((licence) => (
-                        <tr key={licence.licence_id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-6 py-4 font-mono font-medium text-slate-900">{licence.licence_number}</td>
-                          <td className="px-6 py-4 font-medium text-slate-900">{licence.applicant_name}</td>
-                          <td className="px-6 py-4">
-                            {licence.pickup_code ? (
-                              <span className="font-mono font-medium text-slate-700">{licence.pickup_code}</span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200 shadow-sm">N/A</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {licence.status === 'Available' ? (
-                              <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-semibold">
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                {licence.status}
-                              </span>
-                            ) : licence.status === 'Missing' ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold">
-                                {licence.status}
-                              </span>
-                            ) : (
-                              <div className="flex flex-col space-y-1">
-                                <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200 text-xs font-semibold">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Collected
-                                </span>
-                                {licence.collector_name && (
-                                  <span className="text-xs text-slate-500">
-                                    {licence.collection_type ? `${licence.collection_type} • ` : ''}{licence.collector_name}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {licence.status === 'Available' ? (
-                              <button
-                                onClick={() => {
-                                  setSelectedLicence(licence);
-                                  setShowModal(true);
-                                }}
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
-                              >
-                                Hand Over / Collect
-                              </button>
-                            ) : licence.status === 'Missing' ? (
-                              <button
-                                onClick={() => handleResolveMissing(licence)}
-                                className="inline-flex items-center px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded transition-colors shadow-sm text-xs"
-                              >
-                                Resolve
-                              </button>
-                            ) : (
-                              <span className="text-slate-400 text-xs font-medium">Completed</span>
-                            )}
-                          </td>
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left text-sm min-w-[600px]">
+                      <thead className="bg-indigo-700 border-b border-indigo-800 text-white font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
+                        <tr>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider whitespace-nowrap">dl_number</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider">applicant name</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider whitespace-nowrap">pickup Code</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider">status</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider">action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        <tr><td colSpan="5" className="text-center p-12 text-sm text-slate-500">No record found for this DL Number or Name.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto w-full">
+                    <table className="w-full text-left text-sm min-w-[640px]">
+                      <thead className="bg-indigo-600 border-b border-indigo-800 text-white font-semibold uppercase text-xs sticky top-0 shadow-sm z-10">
+                        <tr>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider whitespace-nowrap">dl number</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider">applicant name</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider whitespace-nowrap">pickup Code</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider">status</th>
+                          <th className="px-4 sm:px-6 py-3 sm:py-4 tracking-wider">action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {paginatedResults.map((licence) => (
+                          <tr key={licence.licence_id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 sm:px-6 py-3 sm:py-4 font-mono font-medium text-slate-900 whitespace-nowrap">{licence.licence_number}</td>
+                            <td className="px-4 sm:px-6 py-3 sm:py-4 font-medium text-slate-900">{licence.applicant_name}</td>
+                            <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                              {licence.pickup_code ? (
+                                <span className="font-mono font-medium text-slate-700">{licence.pickup_code}</span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200 shadow-sm">N/A</span>
+                              )}
+                            </td>
+                            <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                              {licence.status === 'Available' ? (
+                                <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-semibold">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  {licence.status}
+                                </span>
+                              ) : licence.status === 'Missing' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold">
+                                  {licence.status}
+                                </span>
+                              ) : (
+                                <div className="flex flex-col space-y-1">
+                                  <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200 text-xs font-semibold">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Collected
+                                  </span>
+                                  {licence.collector_name && (
+                                    <span className="text-xs text-slate-500">
+                                      {licence.collection_type ? `${licence.collection_type} • ` : ''}{licence.collector_name}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                              {licence.status === 'Available' ? (
+                                <button
+                                  onClick={() => {
+                                    setSelectedLicence(licence);
+                                    setShowModal(true);
+                                  }}
+                                  className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
+                                >
+                                  Hand Over / Collect
+                                </button>
+                              ) : licence.status === 'Missing' ? (
+                                <button
+                                  onClick={() => handleResolveMissing(licence)}
+                                  className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded transition-colors shadow-sm text-xs"
+                                >
+                                  Resolve
+                                </button>
+                              ) : (
+                                <span className="text-slate-400 text-xs font-medium">Completed</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
               
               {/* Pagination */}
               {!isSearching && filteredResults.length > 0 && (
-                <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between">
-                  <span className="text-sm text-slate-500">
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <span className="text-xs sm:text-sm text-slate-500 text-center sm:text-left">
                     Showing <span className="font-medium text-slate-900">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-medium text-slate-900">{Math.min(currentPage * itemsPerPage, filteredResults.length)}</span> of <span className="font-medium text-slate-900">{filteredResults.length}</span> results
                   </span>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm text-slate-600 font-medium">Page {currentPage} of {totalPages}</span>
+                  <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto justify-between sm:justify-end">
+                    <span className="text-xs sm:text-sm text-slate-600 font-medium">Page {currentPage} of {totalPages}</span>
                     <div className="flex space-x-2">
                       <button 
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Previous
                       </button>
                       <button 
                         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
-                        className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 sm:px-4 py-1.5 sm:py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Next
                       </button>
@@ -574,7 +561,7 @@ function CustomDatePicker({ selectedDate, onChange }) {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 right-0 sm:right-auto bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-72 z-50">
+        <div className="absolute top-full mt-2 left-0 sm:left-auto right-auto sm:right-0 bg-white rounded-xl shadow-xl border border-slate-200 p-4 w-72 max-w-[calc(100vw-2rem)] z-50">
           <div className="flex items-center justify-between mb-4">
             <button onClick={handlePrev} className="p-1.5 hover:bg-slate-100 rounded-md text-slate-600 transition-colors">
               <ChevronDown className="w-4 h-4 rotate-90" />
@@ -705,39 +692,39 @@ function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
   const displayDateStr = new Date(reportDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <div className="space-y-8 print:space-y-0">
+    <div className="space-y-6 sm:space-y-8 print:space-y-0">
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
-        <StatCard title="Available in Stock" value={stats?.available || 0} icon={<CreditCard className="w-5 h-5 text-emerald-500" />} />
-        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Personal Pickups`} value={data?.daily?.total_personal || 0} icon={<User className="w-5 h-5 text-indigo-500" />} />
-        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Proxy Pickups`} value={data?.daily?.total_proxy || 0} icon={<Truck className="w-5 h-5 text-indigo-500" />} />
-        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Total Collected`} value={data?.daily?.total_collected || 0} icon={<CheckCircle className="w-5 h-5 text-slate-500" />} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 print:hidden">
+        <StatCard title="Available in Stock" value={stats?.available || 0} icon={<CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />} />
+        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Personal Pickups`} value={data?.daily?.total_personal || 0} icon={<User className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />} />
+        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Proxy Pickups`} value={data?.daily?.total_proxy || 0} icon={<Truck className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />} />
+        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Total Collected`} value={data?.daily?.total_collected || 0} icon={<CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />} />
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-2 sm:p-3 rounded-2xl border border-slate-100 shadow-sm print:hidden">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-sm print:hidden">
         {/* Date Selector Group */}
         <div className="flex items-center p-1 bg-slate-100/80 rounded-xl w-full sm:w-auto">
           <button 
             onClick={() => setReportDate(getDayOffset(-1))}
-            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-semibold rounded-lg transition-all ${reportDate === getDayOffset(-1) ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${reportDate === getDayOffset(-1) ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
           >
             Yesterday
           </button>
           <button 
             onClick={() => setReportDate(getDayOffset(0))}
-            className={`flex-1 sm:flex-none px-4 py-2 text-sm font-semibold rounded-lg transition-all ${reportDate === getDayOffset(0) ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all ${reportDate === getDayOffset(0) ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
           >
             Today
           </button>
           
-          <div className="h-6 w-px bg-slate-200 mx-2 hidden sm:block"></div>
+          <div className="h-6 w-px bg-slate-200 mx-1.5 sm:mx-2"></div>
           
           <CustomDatePicker selectedDate={reportDate} onChange={setReportDate} />
         </div>
 
         {/* Action Buttons */}
         <div className="flex w-full sm:w-auto">
-          <button onClick={() => window.print()} className="flex-1 sm:flex-none px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all flex items-center justify-center shadow-sm shadow-indigo-200 text-sm font-medium" title="Print Reports">
+          <button onClick={() => window.print()} className="w-full sm:w-auto px-5 sm:px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all flex items-center justify-center shadow-sm shadow-indigo-200 text-sm font-medium" title="Print Reports">
             <Printer className="w-4 h-4 mr-2" /> Print Day Sheet
           </button>
         </div>
@@ -754,89 +741,89 @@ function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 print:block print:space-y-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 print:block print:space-y-8">
         {/* Personal Collections Ledger Card */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-slate-200 bg-indigo-50 flex justify-between items-center">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-indigo-50 flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-indigo-900 flex items-center">
-                <User className="w-5 h-5 mr-2" /> Personal Collections
+              <h3 className="font-bold text-indigo-900 flex items-center text-sm sm:text-base">
+                <User className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> Personal Collections
               </h3>
-              <p className="text-sm text-indigo-700 mt-1">{displayDateStr}</p>
+              <p className="text-xs sm:text-sm text-indigo-700 mt-0.5 sm:mt-1">{displayDateStr}</p>
             </div>
-            <span className="bg-white text-indigo-700 font-bold px-3 py-1 rounded-full shadow-sm text-sm border border-indigo-100">
+            <span className="bg-white text-indigo-700 font-bold px-2.5 sm:px-3 py-1 rounded-full shadow-sm text-xs sm:text-sm border border-indigo-100">
               {personalPickups.length} Total
             </span>
           </div>
-          <div className="overflow-x-auto flex-1 min-h-[300px]">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-white border-b border-slate-100 text-slate-500">
+          <div className="overflow-x-auto flex-1 min-h-[250px] sm:min-h-[300px]">
+            <table className="w-full text-left text-sm min-w-[320px]">
+              <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-3 font-semibold">Applicant & DL Number</th>
-                  <th className="px-6 py-3 font-semibold">Time</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">Applicant & DL Number</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold text-right">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {personalPickups.length === 0 ? (
-                  <tr><td colSpan="2" className="px-6 py-12 text-center text-slate-400">No personal collections today.</td></tr>
+                  <tr><td colSpan="2" className="px-4 sm:px-6 py-12 text-center text-slate-400">No personal collections recorded for this date.</td></tr>
                 ) : personalPickups.map(row => (
                   <tr key={row.collection_id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-slate-700 uppercase">{row.applicant_name}</div>
-                      <div className="text-xs text-slate-400 mt-1">{row.licence_number} • {row.collector_phone}</div>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
+                      <div className="font-bold text-slate-700 uppercase text-xs sm:text-sm">{row.applicant_name}</div>
+                      <div className="text-xs text-slate-400 mt-0.5 font-mono">{row.licence_number} • {row.collector_phone}</div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap text-xs sm:text-sm text-right">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-right">
-            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide mr-4">COB TOTAL (PERSONAL):</span>
-            <span className="text-lg font-bold text-slate-900">{personalPickups.length}</span>
+          <div className="bg-slate-50 px-4 sm:px-6 py-3 border-t border-slate-200 text-right">
+            <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide mr-2 sm:mr-4">COB TOTAL (PERSONAL):</span>
+            <span className="text-base sm:text-lg font-bold text-slate-900">{personalPickups.length}</span>
           </div>
         </div>
 
         {/* Proxy Collections Ledger Card */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-slate-200 bg-emerald-50 flex justify-between items-center">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-emerald-50 flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-emerald-900 flex items-center">
-                <Truck className="w-5 h-5 mr-2" /> Proxy Collections
+              <h3 className="font-bold text-emerald-900 flex items-center text-sm sm:text-base">
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> Proxy Collections
               </h3>
-              <p className="text-sm text-emerald-700 mt-1">{displayDateStr}</p>
+              <p className="text-xs sm:text-sm text-emerald-700 mt-0.5 sm:mt-1">{displayDateStr}</p>
             </div>
-            <span className="bg-white text-emerald-700 font-bold px-3 py-1 rounded-full shadow-sm text-sm border border-emerald-100">
+            <span className="bg-white text-emerald-700 font-bold px-2.5 sm:px-3 py-1 rounded-full shadow-sm text-xs sm:text-sm border border-emerald-100">
               {proxyPickups.length} Total
             </span>
           </div>
-          <div className="overflow-x-auto flex-1 min-h-[300px]">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-white border-b border-slate-100 text-slate-500">
+          <div className="overflow-x-auto flex-1 min-h-[250px] sm:min-h-[300px]">
+            <table className="w-full text-left text-sm min-w-[340px]">
+              <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-3 font-semibold">Proxy Info & Applicant</th>
-                  <th className="px-6 py-3 font-semibold">Time</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">Proxy Info & Applicant</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold text-right">Time</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {proxyPickups.length === 0 ? (
-                  <tr><td colSpan="2" className="px-6 py-12 text-center text-slate-400">No proxy collections today.</td></tr>
+                  <tr><td colSpan="2" className="px-4 sm:px-6 py-12 text-center text-slate-400">No proxy collections recorded for this date.</td></tr>
                 ) : proxyPickups.map(row => (
                   <tr key={row.collection_id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-slate-900">{row.collector_name} <span className="text-xs font-normal text-slate-500">({row.verification})</span></div>
-                      <div className="text-xs text-slate-600 mt-1">For: {row.applicant_name} ({row.licence_number})</div>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
+                      <div className="font-medium text-slate-900 text-xs sm:text-sm">{row.collector_name} <span className="text-xs font-normal text-slate-500">({row.verification})</span></div>
+                      <div className="text-xs text-slate-600 mt-0.5">For: {row.applicant_name} ({row.licence_number})</div>
                       <div className="text-xs text-slate-500 mt-0.5">{row.collector_phone}</div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500 whitespace-nowrap align-top">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap align-top text-xs sm:text-sm text-right">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 text-right">
-            <span className="text-sm font-semibold text-slate-500 uppercase tracking-wide mr-4">COB TOTAL (PROXY):</span>
-            <span className="text-lg font-bold text-slate-900">{proxyPickups.length}</span>
+          <div className="bg-slate-50 px-4 sm:px-6 py-3 border-t border-slate-200 text-right">
+            <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide mr-2 sm:mr-4">COB TOTAL (PROXY):</span>
+            <span className="text-base sm:text-lg font-bold text-slate-900">{proxyPickups.length}</span>
           </div>
         </div>
       </div>
@@ -897,24 +884,24 @@ function AuditDrawer({ data, onClose }) {
   events.sort((a, b) => b.date - a.date); // Sort descending
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 flex flex-col border-l border-slate-200 transform transition-transform">
-      <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-full bg-white shadow-2xl z-50 flex flex-col border-l border-slate-200 transform transition-transform">
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
         <div className="flex items-center text-slate-900">
           <History className="w-5 h-5 mr-2 text-indigo-600" />
           <h3 className="font-bold">Audit Trail</h3>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
           <X className="w-5 h-5" />
         </button>
       </div>
       
-      <div className="px-6 py-4 border-b border-slate-100">
-        <p className="text-sm font-medium text-slate-500 mb-1">Licence</p>
-        <p className="font-bold text-slate-900">{licence.licence_number}</p>
+      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-0.5">Licence</p>
+        <p className="font-mono font-bold text-slate-900">{licence.licence_number}</p>
         <p className="text-sm text-slate-600">{licence.applicant_name}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-linear-to-b before:from-transparent before:via-slate-200 before:to-transparent">
           {events.length === 0 ? (
             <p className="text-center text-slate-500 text-sm py-4 relative z-10">No history events found.</p>
@@ -924,12 +911,12 @@ function AuditDrawer({ data, onClose }) {
                 <div className={`flex items-center justify-center w-10 h-10 rounded-full border border-white shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10 ${ev.color}`}>
                   {ev.icon}
                 </div>
-                <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-white shadow-sm z-10">
+                <div className="w-[calc(100%-3.5rem)] sm:w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-3 sm:p-4 rounded-xl border border-slate-200 bg-white shadow-sm z-10">
                   <div className="flex items-center justify-between space-x-2 mb-1">
                     <div className="font-bold text-slate-900 text-sm">{ev.title}</div>
                   </div>
                   <div className="text-slate-500 text-xs mb-2">{ev.date.toLocaleString()}</div>
-                  <div className="text-slate-700 text-sm">{ev.desc}</div>
+                  <div className="text-slate-700 text-xs sm:text-sm">{ev.desc}</div>
                 </div>
               </div>
             ))
@@ -948,7 +935,7 @@ function ReportMissingModal({ licence, onClose, onSuccess }) {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/missing', {
+      const res = await fetch(`${API_BASE_URL}/api/missing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ licence_id: licence.licence_id, ...formData })
@@ -964,16 +951,16 @@ function ReportMissingModal({ licence, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-rose-100 flex justify-between items-center bg-rose-50">
-          <h3 className="font-bold text-rose-800 flex items-center">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[92vh] overflow-y-auto flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-rose-100 flex justify-between items-center bg-rose-50">
+          <h3 className="font-bold text-rose-800 flex items-center text-sm sm:text-base">
             <AlertTriangle className="w-5 h-5 mr-2" /> Report Missing
           </h3>
-          <button onClick={onClose} className="text-rose-400 hover:text-rose-600 transition-colors"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="text-rose-400 hover:text-rose-600 transition-colors p-1"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="mb-4 text-sm text-slate-600 border-b border-slate-100 pb-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+          <div className="mb-4 text-xs sm:text-sm text-slate-600 border-b border-slate-100 pb-4">
             You are reporting <span className="font-semibold text-slate-900">{licence.licence_number}</span> ({licence.applicant_name}) as missing.
           </div>
           <div className="space-y-4">
@@ -994,8 +981,8 @@ function ReportMissingModal({ licence, onClose, onSuccess }) {
               />
             </div>
           </div>
-          <div className="mt-8">
-            <button type="submit" disabled={isSubmitting || !formData.reason} className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-medium py-2.5 rounded-lg transition-colors">
+          <div className="mt-6 sm:mt-8">
+            <button type="submit" disabled={isSubmitting || !formData.reason} className="w-full bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-medium py-2.5 rounded-lg transition-colors text-sm">
               {isSubmitting ? 'Reporting...' : 'Confirm Missing'}
             </button>
           </div>
@@ -1007,14 +994,14 @@ function ReportMissingModal({ licence, onClose, onSuccess }) {
 
 function StatCard({ title, value, icon, subtitle }) {
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start space-x-4">
-      <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+    <div className="bg-white p-3 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex items-start space-x-2.5 sm:space-x-4">
+      <div className="p-1.5 sm:p-3 bg-slate-50 rounded-lg border border-slate-100 shrink-0">
         {icon}
       </div>
-      <div>
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{title}</p>
-        <p className="text-2xl font-bold text-slate-900">{value}</p>
-        {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-tight sm:tracking-wide mb-0.5 sm:mb-1 line-clamp-2 leading-tight">{title}</p>
+        <p className="text-lg sm:text-2xl font-bold text-slate-900 leading-tight">{value}</p>
+        {subtitle && <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">{subtitle}</p>}
       </div>
     </div>
   );
@@ -1084,7 +1071,7 @@ function CollectionModal({ licence, onClose, onSuccess }) {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/collections', {
+      const res = await fetch(`${API_BASE_URL}/api/collections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1111,20 +1098,20 @@ function CollectionModal({ licence, onClose, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <h3 className="font-bold text-slate-800">Record Collection</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[92vh] overflow-y-auto flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 sticky top-0 z-10">
+          <h3 className="font-bold text-slate-800 text-sm sm:text-base">Record Collection</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="flex p-1 bg-slate-100 rounded-lg mb-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+          <div className="flex p-1 bg-slate-100 rounded-lg mb-5 sm:mb-6">
             <button
               type="button"
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${type === 'Personal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${type === 'Personal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               onClick={() => {
                 setType('Personal');
                 setFormData(prev => ({ ...prev, collector_name: licence.applicant_name, collector_phone: licence.phone_number || '' }));
@@ -1134,7 +1121,7 @@ function CollectionModal({ licence, onClose, onSuccess }) {
             </button>
             <button
               type="button"
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${type === 'Proxy' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${type === 'Proxy' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               onClick={() => {
                 setType('Proxy');
                 setFormData(prev => ({ ...prev, collector_name: '', collector_phone: '', collector_id_num: '', relationship: '' }));
@@ -1145,18 +1132,18 @@ function CollectionModal({ licence, onClose, onSuccess }) {
           </div>
 
           <div className="space-y-4">
-            <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg flex justify-between items-center">
+            <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg flex flex-wrap justify-between items-center gap-2">
               <div>
-                <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Applicant</p>
-                <p className="font-bold text-indigo-900">{licence.applicant_name}</p>
+                <p className="text-[10px] sm:text-xs text-indigo-500 font-semibold uppercase tracking-wider">Applicant</p>
+                <p className="font-bold text-indigo-900 text-sm sm:text-base">{licence.applicant_name}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">DL Number</p>
-                <p className="font-mono text-indigo-900 bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-100">{licence.licence_number}</p>
+                <p className="text-[10px] sm:text-xs text-indigo-500 font-semibold uppercase tracking-wider">DL Number</p>
+                <p className="font-mono text-xs sm:text-sm text-indigo-900 bg-white px-2 py-0.5 rounded shadow-sm border border-indigo-100">{licence.licence_number}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">{type === 'Personal' ? 'Applicant Phone' : 'Collector Phone'}</label>
                 <input 
@@ -1195,7 +1182,7 @@ function CollectionModal({ licence, onClose, onSuccess }) {
                     required
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">NIN / ID Number (Optional)</label>
                     <input 
@@ -1221,18 +1208,18 @@ function CollectionModal({ licence, onClose, onSuccess }) {
                   type="checkbox" name="idVerified" checked={formData.idVerified} onChange={handleChange}
                   className="mt-0.5 h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500" 
                 />
-                <span className="text-sm font-medium text-indigo-900">
+                <span className="text-xs sm:text-sm font-medium text-indigo-900">
                   I have physically verified the applicant's Identity Card.
                 </span>
               </label>
             )}
           </div>
 
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <button 
               type="submit" 
               disabled={!isFormValid() || isSubmitting}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-colors flex justify-center items-center"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-colors flex justify-center items-center text-sm"
             >
               {isSubmitting ? 'Recording...' : 'Confirm Collection'}
               {!isSubmitting && <Check className="w-4 h-4 ml-2" />}
@@ -1288,7 +1275,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
   const fetchMasterData = async (filter, page = 1) => {
     setIsMasterLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/licences/master?filter=${filter}&page=${page}&limit=25`);
+      const res = await fetch(`${API_BASE_URL}/api/licences/master?filter=${filter}&page=${page}&limit=25`);
       if (res.ok) {
         const data = await res.json();
         setMasterData(data.data);
@@ -1316,7 +1303,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
     setViewManifestData(null);
     setModalSearchQuery('');
     try {
-      const res = await fetch(`http://localhost:5000/api/dispatches/${id}/licences`);
+      const res = await fetch(`${API_BASE_URL}/api/dispatches/${id}/licences`);
       if (res.ok) {
         setViewManifestData(await res.json());
       }
@@ -1328,7 +1315,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
   const fetchDispatches = async () => {
     setIsLoadingHistory(true);
     try {
-      const res = await fetch('http://localhost:5000/api/dispatches');
+      const res = await fetch(`${API_BASE_URL}/api/dispatches`);
       if (res.ok) {
         const data = await res.json();
         setPastDispatches(data);
@@ -1349,7 +1336,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
     if (!newName || newName.trim() === '' || newName === dispatch.dispatch_code) return;
     
     try {
-      const res = await fetch(`http://localhost:5000/api/dispatches/${dispatch.dispatch_id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/dispatches/${dispatch.dispatch_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dispatch_code: newName })
@@ -1369,7 +1356,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
     if (!window.confirm(`Are you sure you want to delete batch ${dispatch.dispatch_code}? This will remove all associated licences that were in this batch. This action cannot be undone.`)) return;
     
     try {
-      const res = await fetch(`http://localhost:5000/api/dispatches/${dispatch.dispatch_id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/dispatches/${dispatch.dispatch_id}`, {
         method: 'DELETE'
       });
       if (!res.ok) {
@@ -1396,7 +1383,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
     formData.append('manifest', file);
 
     try {
-      const res = await fetch('http://localhost:5000/api/dispatches/upload-manifest', {
+      const res = await fetch(`${API_BASE_URL}/api/dispatches/upload-manifest`, {
         method: 'POST',
         body: formData
       });
@@ -1426,7 +1413,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
 
     setIsCommitting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/dispatches/commit', {
+      const res = await fetch(`${API_BASE_URL}/api/dispatches/commit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -1468,48 +1455,48 @@ function IntakeView({ setActiveTab, showToast, stats }) {
   return (
     <div className="space-y-6">
       {/* 3 Top Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div 
           onClick={() => handleCardClick('all')} 
-          className={`bg-white p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'all' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+          className={`bg-white p-4 sm:p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'all' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
         >
-          <div className="flex items-start space-x-4">
-            <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+          <div className="flex items-start space-x-3 sm:space-x-4">
+            <div className="p-2.5 sm:p-3 bg-indigo-50 rounded-lg border border-indigo-100 shrink-0">
               <PackagePlus className="w-5 h-5 text-indigo-500" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Ingested Licences</p>
-              <p className="text-2xl font-bold text-slate-900">{stats?.total_ingested || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 truncate">Total Ingested Licences</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats?.total_ingested || 0}</p>
             </div>
           </div>
         </div>
 
         <div 
           onClick={() => handleCardClick('collected')} 
-          className={`bg-white p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'collected' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+          className={`bg-white p-4 sm:p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'collected' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
         >
-          <div className="flex items-start space-x-4">
-            <div className="p-3 bg-slate-100 rounded-lg border border-slate-200">
+          <div className="flex items-start space-x-3 sm:space-x-4">
+            <div className="p-2.5 sm:p-3 bg-slate-100 rounded-lg border border-slate-200 shrink-0">
               <CheckCircle className="w-5 h-5 text-slate-500" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Total Collected</p>
-              <p className="text-2xl font-bold text-slate-900">{stats?.total_collected_all_time || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 truncate">Total Collected</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats?.total_collected_all_time || 0}</p>
             </div>
           </div>
         </div>
 
         <div 
           onClick={() => handleCardClick('available')} 
-          className={`bg-white p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'available' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+          className={`bg-white p-4 sm:p-5 rounded-xl border cursor-pointer transition-all ${activeCard === 'available' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
         >
-          <div className="flex items-start space-x-4">
-            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+          <div className="flex items-start space-x-3 sm:space-x-4">
+            <div className="p-2.5 sm:p-3 bg-emerald-50 rounded-lg border border-emerald-100 shrink-0">
               <CreditCard className="w-5 h-5 text-emerald-500" />
             </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Available in Stock</p>
-              <p className="text-2xl font-bold text-slate-900">{stats?.available || 0}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 truncate">Available in Stock</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats?.available || 0}</p>
             </div>
           </div>
         </div>
@@ -1518,8 +1505,8 @@ function IntakeView({ setActiveTab, showToast, stats }) {
       {/* Master Data Table */}
       {activeCard && (
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-            <h3 className="font-bold text-slate-900 flex items-center">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h3 className="font-bold text-slate-900 flex items-center text-sm sm:text-base">
               <FileText className="w-5 h-5 mr-2 text-indigo-500" /> 
               {activeCard === 'all' ? 'All Ingested Licences' : activeCard === 'collected' ? 'Collected Licences' : 'Available Licences'}
             </h3>
@@ -1536,38 +1523,38 @@ function IntakeView({ setActiveTab, showToast, stats }) {
             ) : masterData.length === 0 ? (
               <div className="p-12 text-center text-slate-500">No records found.</div>
             ) : (
-              <table className="w-full text-left text-sm">
-                <thead className="bg-white border-b border-slate-100 text-slate-500">
+              <table className="w-full text-left text-sm min-w-[700px]">
+                <thead className="bg-white border-b border-slate-100 text-slate-500 text-xs uppercase tracking-wider">
                   <tr>
-                    <th className="px-6 py-3 font-semibold">DL Number</th>
-                    <th className="px-6 py-3 font-semibold">Applicant Name</th>
-                    <th className="px-6 py-3 font-semibold">Phone Number</th>
-                    <th className="px-6 py-3 font-semibold">Pickup Code</th>
-                    <th className="px-6 py-3 font-semibold">Batch Source</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">DL Number</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Applicant Name</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Phone Number</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Pickup Code</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Batch Source</th>
                     {activeCard === 'collected' && (
                       <>
-                        <th className="px-6 py-3 font-semibold">Collector</th>
-                        <th className="px-6 py-3 font-semibold">Date Collected</th>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">Collector</th>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">Date Collected</th>
                       </>
                     )}
-                    <th className="px-6 py-3 font-semibold">Status</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {masterData.map((rec) => (
                     <tr key={rec.licence_id} className="hover:bg-slate-50">
-                      <td className="px-6 py-3 font-medium text-indigo-700">{rec.licence_number}</td>
-                      <td className="px-6 py-3 text-slate-900">{rec.applicant_name}</td>
-                      <td className="px-6 py-3 text-slate-600">{rec.phone_number || '-'}</td>
-                      <td className="px-6 py-3 font-medium text-slate-700">{rec.pickup_code || '-'}</td>
-                      <td className="px-6 py-3 text-slate-500">{rec.batch_source || '-'}</td>
+                      <td className="px-4 sm:px-6 py-3 font-medium text-indigo-700 whitespace-nowrap">{rec.licence_number}</td>
+                      <td className="px-4 sm:px-6 py-3 text-slate-900">{rec.applicant_name}</td>
+                      <td className="px-4 sm:px-6 py-3 text-slate-600 whitespace-nowrap">{rec.phone_number || '-'}</td>
+                      <td className="px-4 sm:px-6 py-3 font-medium text-slate-700 whitespace-nowrap">{rec.pickup_code || '-'}</td>
+                      <td className="px-4 sm:px-6 py-3 text-slate-500">{rec.batch_source || '-'}</td>
                       {activeCard === 'collected' && (
                         <>
-                          <td className="px-6 py-3 text-slate-900">{rec.collector_name || '-'}</td>
-                          <td className="px-6 py-3 text-slate-500">{rec.collection_date ? new Date(rec.collection_date).toLocaleDateString() : '-'}</td>
+                          <td className="px-4 sm:px-6 py-3 text-slate-900">{rec.collector_name || '-'}</td>
+                          <td className="px-4 sm:px-6 py-3 text-slate-500 whitespace-nowrap">{rec.collection_date ? new Date(rec.collection_date).toLocaleDateString() : '-'}</td>
                         </>
                       )}
-                      <td className="px-6 py-3">
+                      <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${rec.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
                           {rec.status}
                         </span>
@@ -1581,22 +1568,22 @@ function IntakeView({ setActiveTab, showToast, stats }) {
           
           {/* Pagination Controls */}
           {!isMasterLoading && masterPagination.totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-slate-200 bg-white flex items-center justify-between">
-              <span className="text-sm text-slate-500">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs sm:text-sm text-slate-500">
                 Page <span className="font-medium text-slate-900">{masterPagination.page}</span> of <span className="font-medium text-slate-900">{masterPagination.totalPages}</span>
               </span>
               <div className="flex space-x-2">
                 <button 
                   onClick={() => fetchMasterData(activeCard, masterPagination.page - 1)}
                   disabled={masterPagination.page === 1}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
                 <button 
                   onClick={() => fetchMasterData(activeCard, masterPagination.page + 1)}
                   disabled={masterPagination.page === masterPagination.totalPages}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>
@@ -1606,20 +1593,20 @@ function IntakeView({ setActiveTab, showToast, stats }) {
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden p-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-2">MVAA Ojo Station - Dispatch & Ingestion Desk</h2>
-        <p className="text-sm text-slate-500 mb-6">Upload Lagos State HQ Manifest. System will automatically filter and extract Ojo Station records.</p>
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden p-4 sm:p-6">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">MVAA Ojo Station - Dispatch & Ingestion Desk</h2>
+        <p className="text-xs sm:text-sm text-slate-500 mb-6">Upload Lagos State HQ Manifest. System will automatically filter and extract Ojo Station records.</p>
         
         <div 
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-colors cursor-pointer mb-8 ${isUploading ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300 hover:bg-slate-100 bg-slate-50'}`}
+          className={`border-2 border-dashed rounded-xl p-6 sm:p-8 flex flex-col items-center justify-center transition-colors cursor-pointer mb-6 sm:mb-8 text-center ${isUploading ? 'border-indigo-400 bg-indigo-50' : 'border-slate-300 hover:bg-slate-100 bg-slate-50'}`}
         >
           {isUploading ? (
-            <Activity className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+            <Activity className="w-10 h-10 sm:w-12 sm:h-12 text-indigo-500 animate-spin mb-3 sm:mb-4" />
           ) : (
-            <UploadCloud className="w-12 h-12 text-indigo-400 mb-4" />
+            <UploadCloud className="w-10 h-10 sm:w-12 sm:h-12 text-indigo-400 mb-3 sm:mb-4" />
           )}
-          <p className="text-slate-700 font-medium mb-1">
+          <p className="text-slate-700 font-medium text-sm sm:text-base mb-1">
             {isUploading ? 'Processing manifest...' : 'Drag and drop your manifest file here, or click to browse'}
           </p>
           <p className="text-xs text-slate-500">Supports .xlsx, .xls</p>
@@ -1635,30 +1622,30 @@ function IntakeView({ setActiveTab, showToast, stats }) {
         {stagedManifest && (
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             {/* INGESTION SUMMARY BANNER */}
-            <div className={`px-6 py-3 border-b border-slate-200 text-sm font-medium flex items-center justify-center ${stagedManifest.new_records_count > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'}`}>
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              Ingestion Summary: {stagedManifest.new_records_count} New Licences to be added • {stagedManifest.duplicate_count} Existing records detected (will be skipped).
+            <div className={`px-4 sm:px-6 py-2.5 sm:py-3 border-b border-slate-200 text-xs sm:text-sm font-medium flex items-center justify-center text-center ${stagedManifest.new_records_count > 0 ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'}`}>
+              <AlertTriangle className="w-4 h-4 mr-2 shrink-0" />
+              <span>Ingestion Summary: {stagedManifest.new_records_count} New Licences • {stagedManifest.duplicate_count} Existing records skipped.</span>
             </div>
 
-            <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center flex-wrap gap-4">
+            <div className="bg-slate-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
               <div>
-                <h3 className="font-bold text-slate-900">Staged: {records.length} Ojo Licences Ready</h3>
-                <div className="mt-2 flex items-center text-sm font-medium text-slate-700 bg-white border border-slate-200 px-3 py-1.5 rounded-md shadow-sm w-fit">
-                  <FileSpreadsheet className="w-4 h-4 text-indigo-600 mr-2" />
-                  {stagedFileName}
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base">Staged: {records.length} Ojo Licences Ready</h3>
+                <div className="mt-1.5 flex items-center text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md shadow-sm w-fit max-w-full truncate">
+                  <FileSpreadsheet className="w-4 h-4 text-indigo-600 mr-2 shrink-0" />
+                  <span className="truncate">{stagedFileName}</span>
                 </div>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 sm:gap-3">
                 <button 
                   onClick={() => setShowSmsPreview(!showSmsPreview)}
-                  className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg shadow-sm hover:bg-slate-50 transition-colors text-sm"
+                  className="w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg shadow-sm hover:bg-slate-50 transition-colors text-xs sm:text-sm text-center justify-center flex items-center"
                 >
                   {showSmsPreview ? 'Hide SMS Preview' : 'View SMS Campaign Preview'}
                 </button>
                 <button 
                   onClick={handleCommit}
                   disabled={isCommitting || stagedManifest.new_records_count === 0}
-                  className={`px-4 py-2 font-medium rounded-lg shadow-sm transition-colors text-sm flex items-center ${stagedManifest.new_records_count === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-indigo-400'}`}
+                  className={`w-full sm:w-auto px-4 py-2 font-medium rounded-lg shadow-sm transition-colors text-xs sm:text-sm flex items-center justify-center text-center ${stagedManifest.new_records_count === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white disabled:bg-indigo-400'}`}
                 >
                   {isCommitting ? (
                     <><Activity className="w-4 h-4 mr-2 animate-spin" /> Committing...</>
@@ -1671,40 +1658,40 @@ function IntakeView({ setActiveTab, showToast, stats }) {
               </div>
             </div>
             <div className="overflow-x-auto max-h-96">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-white border-b border-slate-100 text-slate-500 sticky top-0 shadow-sm z-10">
+              <table className="w-full text-left text-sm min-w-[620px]">
+                <thead className="bg-white border-b border-slate-100 text-slate-500 sticky top-0 shadow-sm z-10 text-xs uppercase tracking-wider">
                   <tr>
-                    <th className="px-6 py-3 font-semibold">S/N</th>
-                    <th className="px-6 py-3 font-semibold">DL Number</th>
-                    <th className="px-6 py-3 font-semibold">Applicant Name</th>
-                    <th className="px-6 py-3 font-semibold">Phone Number</th>
-                    <th className="px-6 py-3 font-semibold">Pickup Code</th>
-                    {showSmsPreview && <th className="px-6 py-3 font-semibold">SMS Preview</th>}
+                    <th className="px-4 sm:px-6 py-3 font-semibold">S/N</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">DL Number</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Applicant Name</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Phone Number</th>
+                    <th className="px-4 sm:px-6 py-3 font-semibold">Pickup Code</th>
+                    {showSmsPreview && <th className="px-4 sm:px-6 py-3 font-semibold">SMS Preview</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {records.map((rec, i) => (
                     <tr key={i} className={rec.is_duplicate ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-slate-50'}>
-                      <td className="px-6 py-3 text-slate-500">{rec.sn}</td>
-                      <td className="px-6 py-3">
+                      <td className="px-4 sm:px-6 py-3 text-slate-500">{rec.sn}</td>
+                      <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
                         <div className="flex items-center">
-                          <span className={`font-medium ${rec.is_duplicate ? 'text-amber-800' : 'text-indigo-700'}`}>{rec.licence_number}</span>
+                          <span className={`font-medium font-mono ${rec.is_duplicate ? 'text-amber-800' : 'text-indigo-700'}`}>{rec.licence_number}</span>
                           {rec.is_duplicate ? (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-200 text-amber-800">
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-200 text-amber-800">
                               Already Exists
                             </span>
                           ) : (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">
                               New Intake
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-3 text-slate-900">{rec.applicant_name}</td>
-                      <td className="px-6 py-3 text-slate-600">{rec.phone_number || '-'}</td>
-                      <td className="px-6 py-3 font-medium text-slate-700">{rec.pickup_code || '-'}</td>
+                      <td className="px-4 sm:px-6 py-3 text-slate-900">{rec.applicant_name}</td>
+                      <td className="px-4 sm:px-6 py-3 text-slate-600 whitespace-nowrap">{rec.phone_number || '-'}</td>
+                      <td className="px-4 sm:px-6 py-3 font-medium text-slate-700 whitespace-nowrap">{rec.pickup_code || '-'}</td>
                       {showSmsPreview && (
-                        <td className="px-6 py-3 text-xs text-slate-500 italic max-w-xs truncate" title={rec.sms_preview}>
+                        <td className="px-4 sm:px-6 py-3 text-xs text-slate-500 italic max-w-xs truncate" title={rec.sms_preview}>
                           {rec.sms_preview}
                         </td>
                       )}
@@ -1718,8 +1705,8 @@ function IntakeView({ setActiveTab, showToast, stats }) {
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-          <h3 className="font-bold text-slate-900 flex items-center">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 className="font-bold text-slate-900 flex items-center text-sm sm:text-base">
             <History className="w-5 h-5 mr-2 text-indigo-500" /> Ingested Manifest Archive
           </h3>
           <span className="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
@@ -1738,14 +1725,14 @@ function IntakeView({ setActiveTab, showToast, stats }) {
           </div>
         ) : (
           <div className="overflow-x-auto max-h-[500px]">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-white border-b border-slate-100 text-slate-500 sticky top-0 shadow-sm z-10">
+            <table className="w-full text-left text-sm min-w-[620px]">
+              <thead className="bg-white border-b border-slate-100 text-slate-500 sticky top-0 shadow-sm z-10 text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-3 font-semibold">File / Batch Name</th>
-                  <th className="px-6 py-3 font-semibold">Date Ingested</th>
-                  <th className="px-6 py-3 font-semibold">Total Cards</th>
-                  <th className="px-6 py-3 font-semibold">Available vs Collected</th>
-                  <th className="px-6 py-3 font-semibold">Status</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">File / Batch Name</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">Date Ingested</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">Total Cards</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">Available vs Collected</th>
+                  <th className="px-4 sm:px-6 py-3 font-semibold">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1756,7 +1743,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
                     onContextMenu={(e) => handleContextMenu(e, dispatch)}
                     onClick={(e) => handleContextMenu(e, dispatch)}
                   >
-                    <td className="px-6 py-4 font-medium text-slate-900">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 font-medium text-slate-900 whitespace-nowrap">
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1765,24 +1752,24 @@ function IntakeView({ setActiveTab, showToast, stats }) {
                         className="flex items-center hover:text-indigo-600 hover:underline transition-colors focus:outline-none"
                         title="Click to view the contents of this manifest"
                       >
-                        <FileSpreadsheet className="w-4 h-4 mr-2 text-indigo-400" />
-                        {dispatch.dispatch_code}
+                        <FileSpreadsheet className="w-4 h-4 mr-2 text-indigo-400 shrink-0" />
+                        <span className="truncate max-w-xs">{dispatch.dispatch_code}</span>
                       </button>
                     </td>
-                    <td className="px-6 py-4 text-slate-600">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-600 whitespace-nowrap">
                       {new Date(dispatch.dispatch_date).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 font-medium text-slate-700">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 font-medium text-slate-700 whitespace-nowrap">
                       {dispatch.total_licences}
                     </td>
-                    <td className="px-6 py-4 text-slate-600">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-600 whitespace-nowrap">
                       <span className="text-emerald-600 font-medium">{dispatch.available_count} Available</span> 
                       <span className="text-slate-400 mx-2">•</span> 
                       <span className="text-indigo-600 font-medium">{dispatch.collected_count} Collected</span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center">
-                        <CheckCircle className="w-3 h-3 mr-1" /> Active In Inventory
+                        <CheckCircle className="w-3 h-3 mr-1" /> Active
                       </span>
                     </td>
                   </tr>
@@ -1795,26 +1782,26 @@ function IntakeView({ setActiveTab, showToast, stats }) {
 
       {/* Manifest Viewer Modal */}
       {isViewing && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-2 sm:p-4 z-50" onClick={() => setIsViewing(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div>
-                <h3 className="font-bold text-slate-900 flex items-center">
-                  <FileSpreadsheet className="w-5 h-5 text-indigo-500 mr-2" /> 
-                  {viewManifestName}
+                <h3 className="font-bold text-slate-900 flex items-center text-sm sm:text-base">
+                  <FileSpreadsheet className="w-5 h-5 text-indigo-500 mr-2 shrink-0" /> 
+                  <span className="truncate max-w-md">{viewManifestName}</span>
                 </h3>
-                <p className="text-sm text-slate-500 mt-1">Showing {viewManifestData?.length || 0} records imported from this batch.</p>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Showing {viewManifestData?.length || 0} records imported from this batch.</p>
               </div>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto justify-between sm:justify-end">
                 {viewManifestData && (
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-initial">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input 
                       type="text" 
                       placeholder="Search records..."
                       value={modalSearchQuery}
                       onChange={(e) => setModalSearchQuery(e.target.value)}
-                      className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64"
+                      className="pl-9 pr-4 py-1.5 sm:py-2 border border-slate-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-full sm:w-64"
                     />
                   </div>
                 )}
@@ -1823,46 +1810,48 @@ function IntakeView({ setActiveTab, showToast, stats }) {
                 </button>
               </div>
             </div>
-            <div className="overflow-y-auto p-6 flex-1">
+            <div className="overflow-y-auto p-3 sm:p-6 flex-1">
               {!viewManifestData ? (
                 <div className="flex justify-center p-8"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>
               ) : viewManifestData.length === 0 ? (
-                <div className="text-center p-8 text-slate-500">No records found for this manifest.</div>
+                <div className="text-center p-8 text-slate-500 text-sm">No records found for this manifest.</div>
               ) : (
-                <table className="w-full text-left text-sm border border-slate-200 rounded-lg overflow-hidden">
-                  <thead className="bg-slate-50 text-slate-500 sticky top-0 shadow-sm z-10">
-                    <tr>
-                      <th className="px-6 py-3 font-semibold">S/N</th>
-                      <th className="px-6 py-3 font-semibold">DL Number</th>
-                      <th className="px-6 py-3 font-semibold">Applicant Name</th>
-                      <th className="px-6 py-3 font-semibold">Phone Number</th>
-                      <th className="px-6 py-3 font-semibold">Pickup Code</th>
-                      <th className="px-6 py-3 font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {viewManifestData.filter(rec => 
-                      !modalSearchQuery || 
-                      (rec.applicant_name && rec.applicant_name.toLowerCase().includes(modalSearchQuery.toLowerCase())) ||
-                      (rec.licence_number && rec.licence_number.toLowerCase().includes(modalSearchQuery.toLowerCase())) ||
-                      (rec.phone_number && rec.phone_number.includes(modalSearchQuery)) ||
-                      (rec.pickup_code && rec.pickup_code.toLowerCase().includes(modalSearchQuery.toLowerCase()))
-                    ).map((rec, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-6 py-3 text-slate-500 font-medium">{i + 1}</td>
-                        <td className="px-6 py-3 font-medium text-indigo-700">{rec.licence_number}</td>
-                        <td className="px-6 py-3 text-slate-900">{rec.applicant_name}</td>
-                        <td className="px-6 py-3 text-slate-600">{rec.phone_number || '-'}</td>
-                        <td className="px-6 py-3 font-medium text-slate-700">{rec.pickup_code || '-'}</td>
-                        <td className="px-6 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${rec.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-                            {rec.status}
-                          </span>
-                        </td>
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-sm border border-slate-200 rounded-lg overflow-hidden min-w-[560px]">
+                    <thead className="bg-slate-50 text-slate-500 sticky top-0 shadow-sm z-10 text-xs uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">S/N</th>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">DL Number</th>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">Applicant Name</th>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">Phone Number</th>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">Pickup Code</th>
+                        <th className="px-4 sm:px-6 py-3 font-semibold">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {viewManifestData.filter(rec => 
+                        !modalSearchQuery || 
+                        (rec.applicant_name && rec.applicant_name.toLowerCase().includes(modalSearchQuery.toLowerCase())) ||
+                        (rec.licence_number && rec.licence_number.toLowerCase().includes(modalSearchQuery.toLowerCase())) ||
+                        (rec.phone_number && rec.phone_number.includes(modalSearchQuery)) ||
+                        (rec.pickup_code && rec.pickup_code.toLowerCase().includes(modalSearchQuery.toLowerCase()))
+                      ).map((rec, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="px-4 sm:px-6 py-3 text-slate-500 font-medium">{i + 1}</td>
+                          <td className="px-4 sm:px-6 py-3 font-medium font-mono text-indigo-700 whitespace-nowrap">{rec.licence_number}</td>
+                          <td className="px-4 sm:px-6 py-3 text-slate-900">{rec.applicant_name}</td>
+                          <td className="px-4 sm:px-6 py-3 text-slate-600 whitespace-nowrap">{rec.phone_number || '-'}</td>
+                          <td className="px-4 sm:px-6 py-3 font-medium text-slate-700 whitespace-nowrap">{rec.pickup_code || '-'}</td>
+                          <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${rec.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
+                              {rec.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>
@@ -1872,7 +1861,10 @@ function IntakeView({ setActiveTab, showToast, stats }) {
       {contextMenu.visible && contextMenu.dispatch && (
         <div 
           className="fixed bg-white border border-slate-200 rounded-lg shadow-xl z-[100] overflow-hidden w-48 transition-all"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
+          style={{ 
+            top: typeof window !== 'undefined' ? Math.min(contextMenu.y, window.innerHeight - 130) : contextMenu.y, 
+            left: typeof window !== 'undefined' ? Math.min(contextMenu.x, window.innerWidth - 210) : contextMenu.x 
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">

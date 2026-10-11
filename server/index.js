@@ -8,18 +8,22 @@ const db = require('./db');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  }
+// Memory storage for multer: prevents ephemeral disk storage issues on serverless or cloud containers
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 }
 });
-const upload = multer({ storage: storage });
 
-app.use(cors());
-app.use('/uploads', express.static('uploads'));
+// Configure CORS cleanly for production (supports Vercel, Netlify, and custom domains)
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+  : '*';
+
+app.use(cors({
+  origin: allowedOrigins === '*' ? '*' : allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
@@ -162,11 +166,11 @@ app.get('/api/licences/master', async (req, res) => {
 // Extracts only OJO station tab records from the HQ workbook
 app.post('/api/dispatches/upload-manifest', upload.single('manifest'), async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ error: 'No manifest file uploaded' });
     }
 
-    const workbook = xlsx.readFile(req.file.path);
+    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
 
     // Locate the OJO sheet (case-insensitive)
     const ojoSheetName = workbook.SheetNames.find(
