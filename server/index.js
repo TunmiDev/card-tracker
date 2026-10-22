@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const multer = require('multer');
 const xlsx = require('xlsx');
 const db = require('./db');
@@ -36,8 +37,8 @@ const chunkArray = (arr, size) => {
   return chunks;
 };
 
-// GET /health
-app.get('/health', async (req, res) => {
+// GET /api/health (and /health for backwards compatibility)
+app.get(['/api/health', '/health'], async (req, res) => {
   try {
     const result = await db.execute("SELECT datetime('now') as now");
     res.status(200).json({ status: 'ok', timestamp: result.rows[0].now });
@@ -85,6 +86,7 @@ app.get('/api/licences/search', async (req, res) => {
         LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
         WHERE l.status = 'Available'
         ORDER BY l.licence_id DESC
+        LIMIT 100
       `;
       result = await db.execute(recentQuery);
     } else {
@@ -98,12 +100,14 @@ app.get('/api/licences/search', async (req, res) => {
         LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
         LEFT JOIN collections c ON l.licence_id = c.licence_id
         LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
-        WHERE l.licence_number LIKE ? OR l.pickup_code LIKE ? OR l.applicant_name LIKE ?
+        WHERE l.licence_number LIKE ? OR l.pickup_code LIKE ? OR l.applicant_name LIKE ? OR l.phone_number LIKE ?
+        ORDER BY l.licence_id DESC
+        LIMIT 100
       `;
       const searchParam = `%${q.trim()}%`;
       result = await db.execute({
         sql: searchQuery,
-        args: [searchParam, searchParam, searchParam]
+        args: [searchParam, searchParam, searchParam, searchParam]
       });
     }
     res.json(result.rows);
@@ -667,3 +671,5 @@ app.get('/api/reports/outstanding', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+module.exports = app;

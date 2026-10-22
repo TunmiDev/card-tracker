@@ -6,7 +6,7 @@ import {
   PackagePlus, UploadCloud, FileCheck, ChevronDown, Edit2, Trash2
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('terminal');
@@ -47,6 +47,7 @@ export default function App() {
   useEffect(() => {
     fetchStats();
     fetchBatches();
+    fetchLicences('');
   }, []);
 
   useEffect(() => {
@@ -55,11 +56,20 @@ export default function App() {
     }
   }, [activeTab, reportDate]);
 
+  // Debounced live search when typing (if at least 2 chars or when cleared)
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const timer = setTimeout(() => {
+      fetchLicences(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const fetchBatches = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/dispatches`);
       const data = await res.json();
-      setBatches(data);
+      setBatches(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to fetch batches', err);
     }
@@ -94,20 +104,13 @@ export default function App() {
     }
   };
 
-  const handleSearch = async (e) => {
-    if (e) e.preventDefault();
-    setCurrentPage(1);
-    
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      setHasSearched(false);
-      return;
-    }
-
+  const fetchLicences = async (query = '') => {
     setIsSearching(true);
     setHasSearched(true);
+    setCurrentPage(1);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/licences/search?q=${encodeURIComponent(searchQuery)}`);
+      const q = (typeof query === 'string' ? query : searchQuery).trim();
+      const res = await fetch(`${API_BASE_URL}/api/licences/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
       
       if (Array.isArray(data)) {
@@ -117,18 +120,22 @@ export default function App() {
       }
     } catch (err) {
       console.error('Search failed', err);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
   };
 
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+    fetchLicences(searchQuery);
+  };
+
   const handleRefresh = async (licenceId) => {
     await fetchStats();
-    if (searchQuery.trim()) {
-      await handleSearch();
-    }
+    await fetchLicences(searchQuery);
     if (activeTab === 'reports') {
-      await fetchReports();
+      await fetchReports(reportDate);
     }
   };
 
@@ -245,14 +252,31 @@ export default function App() {
                     Dispatch Index
                   </h2>
                   <span className="bg-slate-200 text-slate-700 text-xs px-2.5 py-0.5 rounded-full font-medium">2026 Till Date</span>
+                  {stats?.available ? (
+                    <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-semibold">
+                      {Number(stats.available).toLocaleString()} Available in Stock
+                    </span>
+                  ) : null}
                 </div>
+                {searchQuery ? (
+                  <span className="text-xs text-slate-500">
+                    Results for <span className="font-semibold text-slate-800">"{searchQuery}"</span> ({filteredResults.length})
+                  </span>
+                ) : filteredResults.length > 0 ? (
+                  <span className="text-xs text-slate-500">
+                    Showing latest available licences ({filteredResults.length})
+                  </span>
+                ) : null}
               </div>
 
               {/* Search Filter Control */}
               <div className="p-4 sm:p-6 border-b border-slate-200 bg-white flex flex-col items-center">
-                <div className="w-full max-w-2xl flex flex-col items-center">
+                <form 
+                  onSubmit={handleSearch}
+                  className="w-full max-w-2xl flex flex-col sm:flex-row gap-2 sm:gap-3 items-center"
+                >
                   {/* Input Field */}
-                  <div className="relative w-full flex gap-2 sm:gap-3 items-center group">
+                  <div className="relative w-full flex items-center group">
                     <div className="absolute left-3.5 sm:left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors">
                       <Search className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
@@ -264,52 +288,53 @@ export default function App() {
                         const val = e.target.value;
                         setSearchQuery(val);
                         if (!val.trim()) {
-                          setSearchResults([]);
-                          setHasSearched(false);
+                          fetchLicences('');
                         }
                       }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleSearch();
-                        }
-                      }}
-                      placeholder="Type DL Number or Applicant Name and hit Enter..."
-                      className="w-full pl-10 sm:pl-12 pr-12 sm:pr-20 py-2.5 sm:py-3 bg-white border-2 border-slate-300 rounded focus:outline-none focus:border-blue-500 text-base sm:text-lg uppercase font-mono shadow-sm transition-colors text-slate-900 placeholder:text-sm sm:placeholder:text-base placeholder:text-slate-400 placeholder:normal-case placeholder:font-sans"
+                      placeholder="Type DL Number, Applicant Name, or Phone..."
+                      className="w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-2.5 sm:py-3 bg-white border-2 border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-base sm:text-lg uppercase font-mono shadow-sm transition-colors text-slate-900 placeholder:text-sm sm:placeholder:text-base placeholder:text-slate-400 placeholder:normal-case placeholder:font-sans"
                     />
-                    {!searchQuery ? (
-                      <div className="absolute right-3.5 sm:right-4 top-1/2 transform -translate-y-1/2">
-                        <kbd className="hidden sm:inline-flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded shadow-sm">
-                          <span>↵</span>
-                          <span>Enter</span>
-                        </kbd>
-                      </div>
-                    ) : (
+                    {searchQuery && (
                       <button
+                        type="button"
                         onClick={() => {
                           setSearchQuery('');
-                          setSearchResults([]);
-                          setHasSearched(false);
+                          fetchLicences('');
                         }}
-                        className="absolute right-3.5 sm:right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+                        className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
+                        title="Clear search"
                       >
                         <X className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     )}
                   </div>
-                </div>
+                  <button
+                    type="submit"
+                    disabled={isSearching}
+                    className="w-full sm:w-auto px-5 py-2.5 sm:py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm sm:text-base flex items-center justify-center space-x-2 shadow-sm transition-colors shrink-0 disabled:bg-indigo-400"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>Search</span>
+                  </button>
+                </form>
               </div>
               
               <div className="flex-1 overflow-y-auto bg-slate-50">
                 {isSearching ? (
-                  <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-blue-500 animate-spin" /></div>
+                  <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>
                 ) : !hasSearched ? (
                   <div className="flex flex-col items-center justify-center h-full text-center p-8 sm:p-12 mt-8 sm:mt-16">
                     <div className="bg-slate-100 p-4 sm:p-5 rounded-full mb-4 ring-8 ring-slate-50">
                       <Search className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300" />
                     </div>
                     <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">Search for a Driver's License</h3>
-                    <p className="text-slate-500 text-sm max-w-sm">Enter a DL Number or Applicant Name in the search bar above to begin.</p>
+                    <p className="text-slate-500 text-sm max-w-sm mb-4">Enter a DL Number, Applicant Name, or Phone Number in the search bar above.</p>
+                    <button
+                      onClick={() => fetchLicences('')}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition-colors"
+                    >
+                      Load Available Licences
+                    </button>
                   </div>
                 ) : !Array.isArray(filteredResults) || filteredResults.length === 0 ? (
                   <div className="overflow-x-auto w-full">
@@ -324,7 +349,27 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200 bg-white">
-                        <tr><td colSpan="5" className="text-center p-12 text-sm text-slate-500">No record found for this DL Number or Name.</td></tr>
+                        <tr>
+                          <td colSpan="5" className="text-center p-12 text-sm text-slate-500">
+                            <p className="font-semibold text-slate-800 text-base mb-1">
+                              {searchQuery ? `No record found matching "${searchQuery}"` : 'No available records found.'}
+                            </p>
+                            <p className="text-xs text-slate-400 mb-4 max-w-sm mx-auto">
+                              Please check the spelling, or try searching by licence number, applicant name, or phone number.
+                            </p>
+                            {searchQuery && (
+                              <button
+                                onClick={() => {
+                                  setSearchQuery('');
+                                  fetchLicences('');
+                                }}
+                                className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors border border-indigo-200"
+                              >
+                                View Recent Available Licences
+                              </button>
+                            )}
+                          </td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
