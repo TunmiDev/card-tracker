@@ -15,15 +15,16 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 }
 });
 
-// Configure CORS cleanly for production (supports Vercel, Netlify, and custom domains)
+// Configure CORS to allow requests from the live Vercel frontend and local development
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
-  : '*';
+  ? Array.from(new Set(['https://card-tracker-ashy.vercel.app', 'http://localhost:5173', 'http://localhost:3000', ...process.env.CORS_ORIGIN.split(',').map((o) => o.trim())]))
+  : ['https://card-tracker-ashy.vercel.app', 'http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({
-  origin: allowedOrigins === '*' ? '*' : allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
