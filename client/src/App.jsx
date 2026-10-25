@@ -22,6 +22,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   
   const [showModal, setShowModal] = useState(false);
+  const [collectionModalType, setCollectionModalType] = useState('Personal');
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [showAuditDrawer, setShowAuditDrawer] = useState(false);
   const [auditData, setAuditData] = useState(null);
@@ -47,7 +48,6 @@ export default function App() {
   useEffect(() => {
     fetchStats();
     fetchBatches();
-    fetchLicences('');
   }, []);
 
   useEffect(() => {
@@ -56,12 +56,17 @@ export default function App() {
     }
   }, [activeTab, reportDate]);
 
-  // Debounced live search when typing (if at least 2 chars or when cleared)
+  // Debounced live search when typing (~300ms)
   useEffect(() => {
-    if (!searchQuery.trim()) return;
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      setHasSearched(false);
+      return;
+    }
     const timer = setTimeout(() => {
-      fetchLicences(searchQuery);
-    }, 400);
+      fetchLicences(trimmed);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -105,11 +110,17 @@ export default function App() {
   };
 
   const fetchLicences = async (query = '') => {
+    const q = (typeof query === 'string' ? query : searchQuery).trim();
+    if (!q) {
+      setSearchResults([]);
+      setHasSearched(false);
+      setIsSearching(false);
+      return;
+    }
     setIsSearching(true);
     setHasSearched(true);
     setCurrentPage(1);
     try {
-      const q = (typeof query === 'string' ? query : searchQuery).trim();
       const res = await fetch(`${API_BASE_URL}/api/licences/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
       
@@ -262,10 +273,6 @@ export default function App() {
                   <span className="text-xs text-slate-500">
                     Results for <span className="font-semibold text-slate-800">"{searchQuery}"</span> ({filteredResults.length})
                   </span>
-                ) : filteredResults.length > 0 ? (
-                  <span className="text-xs text-slate-500">
-                    Showing latest available licences ({filteredResults.length})
-                  </span>
                 ) : null}
               </div>
 
@@ -288,7 +295,8 @@ export default function App() {
                         const val = e.target.value;
                         setSearchQuery(val);
                         if (!val.trim()) {
-                          fetchLicences('');
+                          setSearchResults([]);
+                          setHasSearched(false);
                         }
                       }}
                       placeholder="Type DL Number, Applicant Name, or Phone..."
@@ -299,7 +307,8 @@ export default function App() {
                         type="button"
                         onClick={() => {
                           setSearchQuery('');
-                          fetchLicences('');
+                          setSearchResults([]);
+                          setHasSearched(false);
                         }}
                         className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none p-1"
                         title="Clear search"
@@ -322,19 +331,13 @@ export default function App() {
               <div className="flex-1 overflow-y-auto bg-slate-50">
                 {isSearching ? (
                   <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>
-                ) : !hasSearched ? (
+                ) : !searchQuery.trim() || !hasSearched ? (
                   <div className="flex flex-col items-center justify-center h-full text-center p-8 sm:p-12 mt-8 sm:mt-16">
                     <div className="bg-slate-100 p-4 sm:p-5 rounded-full mb-4 ring-8 ring-slate-50">
                       <Search className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300" />
                     </div>
                     <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-1">Search for a Driver's License</h3>
-                    <p className="text-slate-500 text-sm max-w-sm mb-4">Enter a DL Number, Applicant Name, or Phone Number in the search bar above.</p>
-                    <button
-                      onClick={() => fetchLicences('')}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium rounded-lg shadow-sm transition-colors"
-                    >
-                      Load Available Licences
-                    </button>
+                    <p className="text-slate-500 text-sm max-w-sm mb-4">Type a license number, applicant name, or phone number to search.</p>
                   </div>
                 ) : !Array.isArray(filteredResults) || filteredResults.length === 0 ? (
                   <div className="overflow-x-auto w-full">
@@ -352,22 +355,11 @@ export default function App() {
                         <tr>
                           <td colSpan="5" className="text-center p-12 text-sm text-slate-500">
                             <p className="font-semibold text-slate-800 text-base mb-1">
-                              {searchQuery ? `No record found matching "${searchQuery}"` : 'No available records found.'}
+                              No record found matching "{searchQuery}"
                             </p>
                             <p className="text-xs text-slate-400 mb-4 max-w-sm mx-auto">
                               Please check the spelling, or try searching by licence number, applicant name, or phone number.
                             </p>
-                            {searchQuery && (
-                              <button
-                                onClick={() => {
-                                  setSearchQuery('');
-                                  fetchLicences('');
-                                }}
-                                className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors border border-indigo-200"
-                              >
-                                View Recent Available Licences
-                              </button>
-                            )}
                           </td>
                         </tr>
                       </tbody>
@@ -398,40 +390,40 @@ export default function App() {
                               )}
                             </td>
                             <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                              {licence.status === 'Available' ? (
-                                <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-semibold">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  {licence.status}
-                                </span>
-                              ) : licence.status === 'Missing' ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded border bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold">
-                                  {licence.status}
-                                </span>
-                              ) : (
-                                <div className="flex flex-col space-y-1">
-                                  <span className="inline-flex w-max items-center px-2.5 py-0.5 rounded border bg-indigo-50 text-indigo-700 border-indigo-200 text-xs font-semibold">
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Collected
-                                  </span>
-                                  {licence.collector_name && (
-                                    <span className="text-xs text-slate-500">
-                                      {licence.collection_type ? `${licence.collection_type} • ` : ''}{licence.collector_name}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                              <StatusBadge 
+                                status={licence.status} 
+                                collectorName={licence.collector_name} 
+                                collectionType={licence.collection_type} 
+                              />
                             </td>
                             <td className="px-4 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                               {licence.status === 'Available' ? (
-                                <button
-                                  onClick={() => {
-                                    setSelectedLicence(licence);
-                                    setShowModal(true);
-                                  }}
-                                  className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
-                                >
-                                  Hand Over / Collect
-                                </button>
+                                <div className="flex items-center space-x-1.5 sm:space-x-2">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedLicence(licence);
+                                      setCollectionModalType('Personal');
+                                      setShowModal(true);
+                                    }}
+                                    className="inline-flex items-center px-2.5 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
+                                    title="Mark as Collected (Personal)"
+                                  >
+                                    <User className="w-3.5 h-3.5 mr-1" />
+                                    Personal
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedLicence(licence);
+                                      setCollectionModalType('Proxy');
+                                      setShowModal(true);
+                                    }}
+                                    className="inline-flex items-center px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
+                                    title="Mark as Collected (Proxy)"
+                                  >
+                                    <Truck className="w-3.5 h-3.5 mr-1" />
+                                    Proxy
+                                  </button>
+                                </div>
                               ) : licence.status === 'Missing' ? (
                                 <button
                                   onClick={() => handleResolveMissing(licence)}
@@ -491,6 +483,7 @@ export default function App() {
       {showModal && selectedLicence && (
         <CollectionModal 
           licence={selectedLicence} 
+          initialType={collectionModalType}
           onClose={() => setShowModal(false)} 
           onSuccess={() => {
             setShowModal(false);
@@ -983,7 +976,11 @@ function ReportMissingModal({ licence, onClose, onSuccess }) {
       const res = await fetch(`${API_BASE_URL}/api/missing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ licence_id: licence.licence_id, ...formData })
+        body: JSON.stringify({ 
+          licence_id: licence.licence_id, 
+          reason: (formData.reason || '').trim(),
+          action_taken: (formData.action_taken || '').trim()
+        })
       });
       if (!res.ok) throw new Error('Failed');
       onSuccess();
@@ -1064,29 +1061,49 @@ function InfoItem({ icon, label, value }) {
   );
 }
 
-function StatusBadge({ status, size = 'sm' }) {
-  const styles = {
-    Available: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    Collected: 'bg-slate-100 text-slate-700 border-slate-200',
-    Missing: 'bg-rose-100 text-rose-700 border-rose-200'
-  };
+function StatusBadge({ status, collectorName, collectionType, size = 'sm' }) {
+  const sizeClasses = size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2.5 py-0.5 text-xs';
   
-  const sizeClasses = size === 'lg' ? 'px-3 py-1 text-sm' : 'px-2 py-0.5 text-xs';
-  
+  if (status === 'Available') {
+    return (
+      <span className={`inline-flex w-max items-center font-semibold rounded-full border bg-emerald-100 text-emerald-800 border-emerald-200 ${sizeClasses}`}>
+        <CheckCircle className="w-3 h-3 mr-1" />
+        Available
+      </span>
+    );
+  }
+
+  if (status === 'Missing') {
+    return (
+      <span className={`inline-flex w-max items-center font-semibold rounded-full border bg-amber-50 text-amber-700 border-amber-200 ${sizeClasses}`}>
+        <AlertTriangle className="w-3 h-3 mr-1" />
+        Missing
+      </span>
+    );
+  }
+
+  // Standardized Collected badge (Blue / Purple / Indigo)
   return (
-    <span className={`inline-flex items-center font-semibold rounded-full border ${sizeClasses} ${styles[status] || styles.Available}`}>
-      {status === 'Available' && <CheckCircle className="w-3 h-3 mr-1" />}
-      {status}
-    </span>
+    <div className="flex flex-col space-y-0.5">
+      <span className={`inline-flex w-max items-center font-semibold rounded-full border bg-indigo-50 text-indigo-700 border-indigo-200 ${sizeClasses}`}>
+        <CheckCircle className="w-3 h-3 mr-1" />
+        Collected
+      </span>
+      {collectorName && (
+        <span className="text-[11px] text-slate-500">
+          {collectionType ? `${collectionType} • ` : ''}{collectorName}
+        </span>
+      )}
+    </div>
   );
 }
 
-function CollectionModal({ licence, onClose, onSuccess }) {
+function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess }) {
   const todayDate = new Date().toISOString().split('T')[0];
-  const [type, setType] = useState('Personal');
+  const [type, setType] = useState(initialType);
   const [formData, setFormData] = useState({
-    collector_name: licence.applicant_name,
-    collector_phone: licence.phone_number || '',
+    collector_name: initialType === 'Personal' ? licence.applicant_name : '',
+    collector_phone: initialType === 'Personal' ? (licence.phone_number || '') : '',
     collector_id_num: '',
     relationship: '',
     idVerified: false,
@@ -1094,6 +1111,18 @@ function CollectionModal({ licence, onClose, onSuccess }) {
     collection_date: todayDate
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setType(initialType);
+    setFormData(prev => ({
+      ...prev,
+      collector_name: initialType === 'Personal' ? licence.applicant_name : '',
+      collector_phone: initialType === 'Personal' ? (licence.phone_number || '') : '',
+      collector_id_num: '',
+      relationship: '',
+      idVerified: false
+    }));
+  }, [initialType, licence]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -1105,9 +1134,9 @@ function CollectionModal({ licence, onClose, onSuccess }) {
 
   const isFormValid = () => {
     if (type === 'Personal') {
-      return formData.collector_name && formData.collector_phone && formData.idVerified;
+      return (formData.collector_name || '').trim() && (formData.collector_phone || '').trim() && formData.idVerified;
     }
-    return formData.collector_name && formData.collector_phone && formData.relationship;
+    return (formData.collector_name || '').trim() && (formData.collector_phone || '').trim() && (formData.relationship || '').trim();
   };
 
   const handleSubmit = async (e) => {
@@ -1122,12 +1151,12 @@ function CollectionModal({ licence, onClose, onSuccess }) {
         body: JSON.stringify({
           licence_id: licence.licence_id,
           collection_type: type,
-          collector_name: formData.collector_name,
-          collector_phone: formData.collector_phone,
-          collector_id_num: formData.collector_id_num,
-          relationship: formData.relationship,
+          collector_name: (formData.collector_name || '').trim(),
+          collector_phone: (formData.collector_phone || '').trim(),
+          collector_id_num: (formData.collector_id_num || '').trim(),
+          relationship: (formData.relationship || '').trim(),
           verification: type === 'Personal' && formData.idVerified ? 'Physical ID Checked' : 'Proxy Docs Checked',
-          address: formData.address,
+          address: (formData.address || '').trim(),
           collection_date: formData.collection_date
         })
       });
@@ -1600,9 +1629,7 @@ function IntakeView({ setActiveTab, showToast, stats }) {
                         </>
                       )}
                       <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${rec.status === 'Available' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-                          {rec.status}
-                        </span>
+                        <StatusBadge status={rec.status} />
                       </td>
                     </tr>
                   ))}

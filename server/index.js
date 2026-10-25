@@ -73,44 +73,32 @@ app.get('/api/licences/search', async (req, res) => {
   const q = req.query.q || '';
 
   try {
-    let result;
     if (!q.trim()) {
-      const recentQuery = `
-        SELECT 
-          l.*, 
-          d.dispatch_code, d.dispatch_date,
-          c.collection_type, c.collection_date, c.collector_name, c.collector_phone,
-          m.missing_id, m.date_reported, m.reason, m.status as missing_status
-        FROM licences l
-        LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
-        LEFT JOIN collections c ON l.licence_id = c.licence_id
-        LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
-        WHERE l.status = 'Available'
-        ORDER BY l.licence_id DESC
-        LIMIT 100
-      `;
-      result = await db.execute(recentQuery);
-    } else {
-      const searchQuery = `
-        SELECT 
-          l.*, 
-          d.dispatch_code, d.dispatch_date,
-          c.collection_type, c.collection_date, c.collector_name, c.collector_phone,
-          m.missing_id, m.date_reported, m.reason, m.status as missing_status
-        FROM licences l
-        LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
-        LEFT JOIN collections c ON l.licence_id = c.licence_id
-        LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
-        WHERE l.licence_number LIKE ? OR l.pickup_code LIKE ? OR l.applicant_name LIKE ? OR l.phone_number LIKE ?
-        ORDER BY l.licence_id DESC
-        LIMIT 100
-      `;
-      const searchParam = `%${q.trim()}%`;
-      result = await db.execute({
-        sql: searchQuery,
-        args: [searchParam, searchParam, searchParam, searchParam]
-      });
+      return res.json([]);
     }
+
+    const searchQuery = `
+      SELECT 
+        l.*, 
+        d.dispatch_code, d.dispatch_date,
+        c.collection_type, c.collection_date, c.collector_name, c.collector_phone,
+        m.missing_id, m.date_reported, m.reason, m.status as missing_status
+      FROM licences l
+      LEFT JOIN dispatches d ON l.dispatch_id = d.dispatch_id
+      LEFT JOIN collections c ON l.licence_id = c.licence_id
+      LEFT JOIN missing_licences m ON l.licence_id = m.licence_id AND m.status = 'Open'
+      WHERE LOWER(l.licence_number) LIKE LOWER(?) 
+         OR LOWER(l.pickup_code) LIKE LOWER(?) 
+         OR LOWER(l.applicant_name) LIKE LOWER(?) 
+         OR LOWER(l.phone_number) LIKE LOWER(?)
+      ORDER BY l.licence_id DESC
+      LIMIT 50
+    `;
+    const searchParam = `%${q.trim()}%`;
+    const result = await db.execute({
+      sql: searchQuery,
+      args: [searchParam, searchParam, searchParam, searchParam]
+    });
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -453,7 +441,14 @@ app.post('/api/collections', async (req, res) => {
     collection_date
   } = req.body;
 
-  if (!licence_id || !collection_type || !collector_name || !collector_phone) {
+  const sanitizedName = typeof collector_name === 'string' ? collector_name.trim() : collector_name;
+  const sanitizedPhone = typeof collector_phone === 'string' ? collector_phone.trim() : collector_phone;
+  const sanitizedIdNum = typeof collector_id_num === 'string' ? collector_id_num.trim() : collector_id_num;
+  const sanitizedRelationship = typeof relationship === 'string' ? relationship.trim() : relationship;
+  const sanitizedAddress = typeof address === 'string' ? address.trim() : address;
+  const sanitizedVerification = typeof verification === 'string' ? verification.trim() : verification;
+
+  if (!licence_id || !collection_type || !sanitizedName || !sanitizedPhone) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -472,17 +467,17 @@ app.post('/api/collections', async (req, res) => {
     }
 
     const authId = authorized_by || 1;
-    const colDate = new Date().toISOString();
+    const colDate = collection_date ? new Date(collection_date).toISOString() : new Date().toISOString();
 
     await db.batch([
       {
         sql: `INSERT INTO collections (licence_id, collection_type, collector_name, collector_phone, collector_id_num, relationship, verification, authorized_by, collection_date) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [licence_id, collection_type, collector_name, collector_phone, collector_id_num || null, relationship || null, verification || null, authId, colDate]
+        args: [licence_id, collection_type, sanitizedName, sanitizedPhone, sanitizedIdNum || null, sanitizedRelationship || null, sanitizedVerification || null, authId, colDate]
       },
       {
         sql: `UPDATE licences SET status = 'Collected', address = COALESCE(?, address) WHERE licence_id = ?`,
-        args: [address || null, licence_id]
+        args: [sanitizedAddress || null, licence_id]
       }
     ], 'write');
 
@@ -497,7 +492,10 @@ app.post('/api/collections', async (req, res) => {
 app.post('/api/missing', async (req, res) => {
   const { licence_id, reason, action_taken, reported_by } = req.body;
 
-  if (!licence_id || !reason) {
+  const sanitizedReason = typeof reason === 'string' ? reason.trim() : reason;
+  const sanitizedAction = typeof action_taken === 'string' ? action_taken.trim() : action_taken;
+
+  if (!licence_id || !sanitizedReason) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
@@ -521,7 +519,7 @@ app.post('/api/missing', async (req, res) => {
       {
         sql: `INSERT INTO missing_licences (licence_id, reason, action_taken, reported_by, status) 
               VALUES (?, ?, ?, ?, 'Open')`,
-        args: [licence_id, reason, action_taken || null, reporterId]
+        args: [licence_id, sanitizedReason, sanitizedAction || null, reporterId]
       },
       {
         sql: `UPDATE licences SET status = 'Missing' WHERE licence_id = ?`,
@@ -541,7 +539,9 @@ app.put('/api/missing/:missing_id/resolve', async (req, res) => {
   const { missing_id } = req.params;
   const { resolution } = req.body;
 
-  if (!resolution) {
+  const sanitizedResolution = typeof resolution === 'string' ? resolution.trim() : resolution;
+
+  if (!sanitizedResolution) {
     return res.status(400).json({ error: 'Resolution is required' });
   }
 
