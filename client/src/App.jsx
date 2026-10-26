@@ -22,7 +22,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   
   const [showModal, setShowModal] = useState(false);
-  const [collectionModalType, setCollectionModalType] = useState('Personal');
+  const [collectionModalType, setCollectionModalType] = useState('Self');
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [showAuditDrawer, setShowAuditDrawer] = useState(false);
   const [auditData, setAuditData] = useState(null);
@@ -57,12 +57,13 @@ export default function App() {
   }, [activeTab, reportDate]);
 
   // Debounced live search when typing (~300ms)
+  // Guard: never fetch when query is empty — default state is [] with no API call
   useEffect(() => {
     const trimmed = searchQuery.trim();
     if (!trimmed) {
       setSearchResults([]);
       setHasSearched(false);
-      return;
+      return; // do NOT fetch on empty query
     }
     const timer = setTimeout(() => {
       fetchLicences(trimmed);
@@ -144,7 +145,10 @@ export default function App() {
 
   const handleRefresh = async (licenceId) => {
     await fetchStats();
-    await fetchLicences(searchQuery);
+    // Only re-fetch search results if there is an active query
+    if (searchQuery.trim()) {
+      await fetchLicences(searchQuery);
+    }
     if (activeTab === 'reports') {
       await fetchReports(reportDate);
     }
@@ -331,7 +335,8 @@ export default function App() {
               <div className="flex-1 overflow-y-auto bg-slate-50">
                 {isSearching ? (
                   <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>
-                ) : !searchQuery.trim() || !hasSearched ? (
+                ) : !searchQuery.trim() ? (
+                  // Empty query — show prompt, never fetch
                   <div className="flex flex-col items-center justify-center h-full text-center p-8 sm:p-12 mt-8 sm:mt-16">
                     <div className="bg-slate-100 p-4 sm:p-5 rounded-full mb-4 ring-8 ring-slate-50">
                       <Search className="w-10 h-10 sm:w-12 sm:h-12 text-slate-300" />
@@ -402,14 +407,14 @@ export default function App() {
                                   <button
                                     onClick={() => {
                                       setSelectedLicence(licence);
-                                      setCollectionModalType('Personal');
+                                      setCollectionModalType('Self');
                                       setShowModal(true);
                                     }}
-                                    className="inline-flex items-center px-2.5 sm:px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
-                                    title="Mark as Collected (Personal)"
+                                    className="inline-flex items-center px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
+                                    title="Mark as Collected (Self)"
                                   >
                                     <User className="w-3.5 h-3.5 mr-1" />
-                                    Personal
+                                    Self
                                   </button>
                                   <button
                                     onClick={() => {
@@ -417,7 +422,7 @@ export default function App() {
                                       setCollectionModalType('Proxy');
                                       setShowModal(true);
                                     }}
-                                    className="inline-flex items-center px-2.5 sm:px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
+                                    className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-sm text-xs"
                                     title="Mark as Collected (Proxy)"
                                   >
                                     <Truck className="w-3.5 h-3.5 mr-1" />
@@ -723,7 +728,7 @@ function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
     return <div className="flex justify-center p-12"><Activity className="w-8 h-8 text-indigo-500 animate-spin" /></div>;
   }
 
-  const personalPickups = data?.daily?.personal || [];
+  const selfPickups = data?.daily?.self || [];
   const proxyPickups = data?.daily?.proxy || [];
   
   // Create a display string for the selected date
@@ -734,7 +739,7 @@ function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 print:hidden">
         <StatCard title="Available in Stock" value={stats?.available || 0} icon={<CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />} />
-        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Personal Pickups`} value={data?.daily?.total_personal || 0} icon={<User className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />} />
+        <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Self Pickups`} value={data?.daily?.total_self || 0} icon={<User className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />} />
         <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Proxy Pickups`} value={data?.daily?.total_proxy || 0} icon={<Truck className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-500" />} />
         <StatCard title={`${reportDate === getDayOffset(0) ? "Today's" : "Selected Date"} Total Collected`} value={data?.daily?.total_collected || 0} icon={<CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />} />
       </div>
@@ -773,24 +778,24 @@ function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
         <h2 className="text-3xl font-bold text-slate-900">Daily Handover Report</h2>
         <p className="text-lg text-slate-600 mt-2">{displayDateStr}</p>
         <div className="flex justify-center space-x-12 mt-6 text-base text-slate-600">
-          <span>Personal Collections: <strong className="text-slate-900">{personalPickups.length}</strong></span>
+          <span>Self Collections: <strong className="text-slate-900">{selfPickups.length}</strong></span>
           <span>Proxy Collections: <strong className="text-slate-900">{proxyPickups.length}</strong></span>
-          <span>Total Collected: <strong className="text-slate-900">{personalPickups.length + proxyPickups.length}</strong></span>
+          <span>Total Collected: <strong className="text-slate-900">{selfPickups.length + proxyPickups.length}</strong></span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 sm:gap-8 print:block print:space-y-8">
-        {/* Personal Collections Ledger Card */}
+        {/* Self Collections Ledger Card */}
         <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-indigo-50 flex justify-between items-center">
             <div>
               <h3 className="font-bold text-indigo-900 flex items-center text-sm sm:text-base">
-                <User className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> Personal Collections
+                <User className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /> Self Collections
               </h3>
               <p className="text-xs sm:text-sm text-indigo-700 mt-0.5 sm:mt-1">{displayDateStr}</p>
             </div>
             <span className="bg-white text-indigo-700 font-bold px-2.5 sm:px-3 py-1 rounded-full shadow-sm text-xs sm:text-sm border border-indigo-100">
-              {personalPickups.length} Total
+              {selfPickups.length} Total
             </span>
           </div>
           <div className="overflow-x-auto flex-1 min-h-[250px] sm:min-h-[300px]">
@@ -802,23 +807,23 @@ function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {personalPickups.length === 0 ? (
-                  <tr><td colSpan="2" className="px-4 sm:px-6 py-12 text-center text-slate-400">No personal collections recorded for this date.</td></tr>
-                ) : personalPickups.map(row => (
+                {selfPickups.length === 0 ? (
+                  <tr><td colSpan="2" className="px-4 sm:px-6 py-12 text-center text-slate-400">No self collections recorded for this date.</td></tr>
+                ) : selfPickups.map(row => (
                   <tr key={row.collection_id} className="hover:bg-slate-50">
                     <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <div className="font-bold text-slate-700 uppercase text-xs sm:text-sm">{row.applicant_name}</div>
                       <div className="text-xs text-slate-400 mt-0.5 font-mono">{row.licence_number} • {row.collector_phone}</div>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap text-xs sm:text-sm text-right">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap text-xs sm:text-sm text-right">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZone: 'Africa/Lagos'})}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="bg-slate-50 px-4 sm:px-6 py-3 border-t border-slate-200 text-right">
-            <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide mr-2 sm:mr-4">COB TOTAL (PERSONAL):</span>
-            <span className="text-base sm:text-lg font-bold text-slate-900">{personalPickups.length}</span>
+            <span className="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide mr-2 sm:mr-4">COB TOTAL (SELF):</span>
+            <span className="text-base sm:text-lg font-bold text-slate-900">{selfPickups.length}</span>
           </div>
         </div>
 
@@ -853,7 +858,7 @@ function ReportsView({ data, isLoading, stats, reportDate, setReportDate }) {
                       <div className="text-xs text-slate-600 mt-0.5">For: {row.applicant_name} ({row.licence_number})</div>
                       <div className="text-xs text-slate-500 mt-0.5">{row.collector_phone}</div>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap align-top text-xs sm:text-sm text-right">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap align-top text-xs sm:text-sm text-right">{new Date(row.collection_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', timeZone: 'Africa/Lagos'})}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1098,17 +1103,16 @@ function StatusBadge({ status, collectorName, collectionType, size = 'sm' }) {
   );
 }
 
-function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess }) {
-  const todayDate = new Date().toISOString().split('T')[0];
+function CollectionModal({ licence, initialType = 'Self', onClose, onSuccess }) {
   const [type, setType] = useState(initialType);
   const [formData, setFormData] = useState({
-    collector_name: initialType === 'Personal' ? licence.applicant_name : '',
-    collector_phone: initialType === 'Personal' ? (licence.phone_number || '') : '',
+    collector_name: initialType === 'Self' ? licence.applicant_name : '',
+    collector_phone: initialType === 'Self' ? (licence.phone_number || '') : '',
     collector_id_num: '',
     relationship: '',
     idVerified: false,
     address: licence.address || '',
-    collection_date: todayDate
+    collection_date: new Date().toISOString().split('T')[0]
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -1116,8 +1120,8 @@ function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess
     setType(initialType);
     setFormData(prev => ({
       ...prev,
-      collector_name: initialType === 'Personal' ? licence.applicant_name : '',
-      collector_phone: initialType === 'Personal' ? (licence.phone_number || '') : '',
+      collector_name: initialType === 'Self' ? licence.applicant_name : '',
+      collector_phone: initialType === 'Self' ? (licence.phone_number || '') : '',
       collector_id_num: '',
       relationship: '',
       idVerified: false
@@ -1133,7 +1137,7 @@ function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess
   };
 
   const isFormValid = () => {
-    if (type === 'Personal') {
+    if (type === 'Self') {
       return (formData.collector_name || '').trim() && (formData.collector_phone || '').trim() && formData.idVerified;
     }
     return (formData.collector_name || '').trim() && (formData.collector_phone || '').trim() && (formData.relationship || '').trim();
@@ -1155,9 +1159,10 @@ function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess
           collector_phone: (formData.collector_phone || '').trim(),
           collector_id_num: (formData.collector_id_num || '').trim(),
           relationship: (formData.relationship || '').trim(),
-          verification: type === 'Personal' && formData.idVerified ? 'Physical ID Checked' : 'Proxy Docs Checked',
+          verification: type === 'Self' && formData.idVerified ? 'Physical ID Checked' : 'Proxy Docs Checked',
           address: (formData.address || '').trim(),
-          collection_date: formData.collection_date
+          // Capture exact client-side ISO timestamp at the moment of submission
+          collection_date: new Date().toISOString()
         })
       });
 
@@ -1185,13 +1190,13 @@ function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess
           <div className="flex p-1 bg-slate-100 rounded-lg mb-5 sm:mb-6">
             <button
               type="button"
-              className={`flex-1 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${type === 'Personal' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${type === 'Self' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               onClick={() => {
-                setType('Personal');
+                setType('Self');
                 setFormData(prev => ({ ...prev, collector_name: licence.applicant_name, collector_phone: licence.phone_number || '' }));
               }}
             >
-              Personal Collection
+              Self Collection
             </button>
             <button
               type="button"
@@ -1237,7 +1242,7 @@ function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess
               </div>
             </div>
 
-            {type === 'Personal' ? (
+            {type === 'Self' ? (
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Applicant Address</label>
                 <textarea 
@@ -1276,7 +1281,7 @@ function CollectionModal({ licence, initialType = 'Personal', onClose, onSuccess
               </>
             )}
 
-            {type === 'Personal' && (
+            {type === 'Self' && (
               <label className="flex items-start space-x-3 mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-md cursor-pointer hover:bg-indigo-100 transition-colors">
                 <input 
                   type="checkbox" name="idVerified" checked={formData.idVerified} onChange={handleChange}

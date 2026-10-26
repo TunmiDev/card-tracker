@@ -54,7 +54,7 @@ app.get('/api/dashboard/stats', async (req, res) => {
     const statsQuery = `
       SELECT 
         (SELECT COUNT(*) FROM licences WHERE status = 'Available') as available,
-        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Personal' AND date(collection_date, 'localtime') = date('now', 'localtime')) as collected_personal,
+        (SELECT COUNT(*) FROM collections WHERE collection_type = 'Self' AND date(collection_date, 'localtime') = date('now', 'localtime')) as collected_self,
         (SELECT COUNT(*) FROM collections WHERE collection_type = 'Proxy' AND date(collection_date, 'localtime') = date('now', 'localtime')) as collected_proxy,
         (SELECT COUNT(*) FROM collections WHERE date(collection_date, 'localtime') = date('now', 'localtime')) as collected_total,
         (SELECT COUNT(*) FROM licences) as total_ingested,
@@ -628,21 +628,21 @@ app.get('/api/reports/daily', async (req, res) => {
     `;
     const result = await db.execute({ sql: dailyQuery, args: [targetDate] });
     
-    const personal = [];
+    const self = [];
     const proxy = [];
     
     result.rows.forEach(row => {
-      if (row.collection_type === 'Personal') personal.push(row);
+      if (row.collection_type === 'Self') self.push(row);
       else if (row.collection_type === 'Proxy') proxy.push(row);
     });
 
     res.json({
       date: targetDate,
-      personal,
+      self,
       proxy,
-      total_personal: personal.length,
+      total_self: self.length,
       total_proxy: proxy.length,
-      total_collected: personal.length + proxy.length
+      total_collected: self.length + proxy.length
     });
   } catch (err) {
     console.error(err);
